@@ -16,10 +16,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       bots: bots.map(doc => documentToBot(doc as BotDocument)),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching bots:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('MONGODB_URI exists:', !!process.env.MONGODB_URI);
+    
     return NextResponse.json(
-      { error: 'Failed to fetch bots' },
+      { 
+        error: 'Failed to fetch bots',
+        details: error.message,
+        code: error.code,
+        name: error.name,
+      },
       { status: 500 }
     );
   }
