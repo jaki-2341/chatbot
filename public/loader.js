@@ -10,12 +10,43 @@
   const config = window.chatbotConfig || {};
   const botId = config.id;
   
-  // Determine API base URL:
+  // Determine API base URL (in order of priority):
   // 1. Use config.apiUrl if provided (for custom API endpoints)
-  // 2. Use default API URL (update this to your production API URL)
-  // 3. Fallback to window.location.origin (for same-origin deployments)
-  const defaultApiUrl = 'https://your-api-domain.com'; // Update this to your production API URL
-  const apiBaseUrl = config.apiUrl || defaultApiUrl || window.location.origin;
+  // 2. Use data-api-url attribute from the script tag (set in embed code)
+  // 3. Try to detect from current script's origin (if script is on same domain as API)
+  // 4. Fallback to window.location.origin (for same-origin deployments)
+  let apiBaseUrl = config.apiUrl;
+  
+  if (!apiBaseUrl) {
+    // Try to get API URL from script tag's data-api-url attribute
+    const scripts = document.getElementsByTagName('script');
+    for (let i = 0; i < scripts.length; i++) {
+      const script = scripts[i];
+      if (script.src && script.src.includes('loader.js')) {
+        const dataApiUrl = script.getAttribute('data-api-url');
+        if (dataApiUrl) {
+          apiBaseUrl = dataApiUrl;
+          break;
+        }
+        // Also try to detect from script's origin if it's from same domain
+        try {
+          const scriptUrl = new URL(script.src);
+          // Only use script origin if it's not a CDN (jsdelivr, cdnjs, etc.)
+          if (!scriptUrl.hostname.includes('cdn.') && !scriptUrl.hostname.includes('jsdelivr')) {
+            apiBaseUrl = scriptUrl.origin;
+            break;
+          }
+        } catch (e) {
+          // Invalid URL, continue
+        }
+      }
+    }
+    
+    // Final fallback to window.location.origin
+    if (!apiBaseUrl) {
+      apiBaseUrl = window.location.origin;
+    }
+  }
 
   if (!botId) {
     console.error('ChatbotWidget: bot id is required in window.chatbotConfig');

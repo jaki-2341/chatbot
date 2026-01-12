@@ -2,7 +2,7 @@
 
 import { Bot } from '@/app/types/bot';
 import { X, Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface EmbedModalProps {
   bot: Bot;
@@ -14,11 +14,10 @@ export default function EmbedModal({ bot, onClose }: EmbedModalProps) {
 
   // jsDelivr GitHub CDN URL for loader.js
   // Format: https://cdn.jsdelivr.net/gh/username/repo@branch/path/to/loader.js
-  // Update these values with your actual GitHub repository details:
-  const GITHUB_USERNAME = 'yourusername'; // Replace with your GitHub username
-  const GITHUB_REPO = 'yourrepo'; // Replace with your repository name
-  const GITHUB_BRANCH = 'main'; // Replace with your branch (main, master, v1.0.0, etc.)
-  const LOADER_PATH = 'public/loader.js'; // Path to loader.js in your repo (adjust if different)
+  const GITHUB_USERNAME = 'jaki-2341';
+  const GITHUB_REPO = 'chatbot';
+  const GITHUB_BRANCH = 'master'; // Use 'master' for latest, or a version tag like 'v1.0.0' for production
+  const LOADER_PATH = 'public/loader.js'; // Path to loader.js in your repo (adjust if your repo structure is different)
   
   const loaderCdnUrl = `https://cdn.jsdelivr.net/gh/${GITHUB_USERNAME}/${GITHUB_REPO}@${GITHUB_BRANCH}/${LOADER_PATH}`;
 
@@ -29,7 +28,7 @@ export default function EmbedModal({ bot, onClose }: EmbedModalProps) {
     position: "${bot.position}"
   };
 </script>
-<script src="${loaderCdnUrl}" async defer></script>`;
+<script src="${loaderCdnUrl}" data-api-url="${typeof window !== 'undefined' ? window.location.origin : ''}" async defer></script>`;
 
   const handleCopy = async () => {
     try {
