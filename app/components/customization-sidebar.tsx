@@ -8,6 +8,7 @@ import { AppearanceSection } from './customization/appearance-section';
 
 interface CustomizationSidebarProps {
   bot: Bot;
+  savedBot: Bot | null;
   onBotChange: (updates: Partial<Bot>) => void;
   onBack: () => void;
   onSave: () => void;
@@ -17,6 +18,7 @@ type Tab = 'config' | 'knowledge' | 'style';
 
 export default function CustomizationSidebar({
   bot,
+  savedBot,
   onBotChange,
   onBack,
   onSave,
@@ -61,7 +63,7 @@ export default function CustomizationSidebar({
 
       {activeTab === 'config' && <ConfigSection bot={bot} onBotChange={onBotChange} />}
       {activeTab === 'knowledge' && <KnowledgeSection bot={bot} onBotChange={onBotChange} />}
-      {activeTab === 'style' && <AppearanceSection bot={bot} onBotChange={onBotChange} />}
+      {activeTab === 'style' && <AppearanceSection bot={bot} savedBot={savedBot} onBotChange={onBotChange} />}
     </div>
   );
 }

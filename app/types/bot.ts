@@ -13,6 +13,13 @@ export interface Bot {
   avatarImage?: string; // Base64 encoded image or image URL
   previewUrl?: string; // Website URL for preview iframe
   status?: 'Active' | 'Inactive'; // Bot status for dashboard
+  welcomeDescription?: string; // Secondary welcome text
+  suggestedQuestions?: string[]; // Array of quick starter questions
+  colorHistory?: (string | null)[]; // Color palette history (6 slots)
+  collectInfoEnabled?: boolean; // Enable information collection
+  collectEmail?: boolean; // Collect email address
+  collectName?: boolean; // Collect full name
+  collectPhone?: boolean; // Collect phone number
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -10,6 +10,9 @@ import {
   UserCircle,
   Info,
   Bot as BotIcon,
+  HelpCircle,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 
 interface ConfigSectionProps {
@@ -18,10 +21,33 @@ interface ConfigSectionProps {
 }
 
 export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
-  const [collectInfoEnabled, setCollectInfoEnabled] = useState(false);
-  const [collectEmail, setCollectEmail] = useState(true);
-  const [collectName, setCollectName] = useState(false);
-  const [collectPhone, setCollectPhone] = useState(false);
+  const [newQuestion, setNewQuestion] = useState('');
+  
+  // Use bot state for collect info settings
+  const collectInfoEnabled = bot.collectInfoEnabled || false;
+  const collectEmail = bot.collectEmail !== undefined ? bot.collectEmail : true;
+  const collectName = bot.collectName || false;
+  const collectPhone = bot.collectPhone || false;
+
+  const handleAddQuestion = () => {
+    if (!newQuestion.trim()) return;
+    const currentQuestions = bot.suggestedQuestions || [];
+    if (currentQuestions.length >= 4) {
+      alert('Maximum 4 suggested questions allowed');
+      return;
+    }
+    onBotChange({ 
+      suggestedQuestions: [...currentQuestions, newQuestion.trim()] 
+    });
+    setNewQuestion('');
+  };
+
+  const handleRemoveQuestion = (index: number) => {
+    const currentQuestions = bot.suggestedQuestions || [];
+    onBotChange({ 
+      suggestedQuestions: currentQuestions.filter((_, i) => i !== index) 
+    });
+  };
 
   return (
     <div className="p-6 space-y-8">
@@ -157,11 +183,60 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
             <textarea
               value={bot.welcomeMessage}
               onChange={(e) => onBotChange({ welcomeMessage: e.target.value })}
-              rows={3}
+              rows={2}
               placeholder="Hello! How can I help you today?"
               className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm resize-none"
             />
             <p className="text-xs text-slate-400 mt-1.5">First message users will see</p>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+              <BotIcon className="w-4 h-4 text-slate-500" />
+              Suggested Questions
+            </label>
+            
+            {/* Input field - static position at top */}
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                value={newQuestion}
+                onChange={(e) => setNewQuestion(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddQuestion()}
+                placeholder="Add a suggested question..."
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm"
+              />
+              <button
+                onClick={handleAddQuestion}
+                disabled={!newQuestion.trim() || (bot.suggestedQuestions || []).length >= 4}
+                className="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg font-medium text-sm hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Questions list - appears below input, grows downward */}
+            <div className="space-y-2 min-h-[40px]">
+              {(bot.suggestedQuestions || []).length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-2">No questions added yet</p>
+              ) : (
+                (bot.suggestedQuestions || []).map((question, index) => (
+                  <div key={index} className="flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                    <div className="flex-1 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700">
+                      {question}
+                    </div>
+                    <button
+                      onClick={() => handleRemoveQuestion(index)}
+                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <p className="text-xs text-slate-400 mt-2">Add up to 4 quick questions for users to click</p>
           </div>
 
           <div>
@@ -194,22 +269,7 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
         </div>
         
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-4">
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
-              <BotIcon className="w-4 h-4 text-slate-500" />
-              Model Personality
-            </label>
-            <select className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm bg-white">
-              <option value="Professional & Concise">Professional & Concise</option>
-              <option value="Friendly & Casual">Friendly & Casual</option>
-              <option value="Technical & Detailed">Technical & Detailed</option>
-              <option value="Empathetic Support">Empathetic Support</option>
-              <option value="Sarcastic & Witty">Sarcastic & Witty</option>
-            </select>
-            <p className="text-xs text-slate-400 mt-1.5">Define the tone of AI responses</p>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100">
+          <div className="pt-4">
             <label className="flex items-center justify-between cursor-pointer group">
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-lg transition-colors ${
@@ -228,7 +288,7 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
                 <input
                   type="checkbox"
                   checked={collectInfoEnabled}
-                  onChange={(e) => setCollectInfoEnabled(e.target.checked)}
+                  onChange={(e) => onBotChange({ collectInfoEnabled: e.target.checked })}
                   className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-300 checked:left-[calc(100%-1.25rem)] checked:border-blue-500 transition-all opacity-0 z-10"
                 />
                 <span
@@ -252,7 +312,7 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
                   <input
                     type="checkbox"
                     checked={collectEmail}
-                    onChange={(e) => setCollectEmail(e.target.checked)}
+                    onChange={(e) => onBotChange({ collectEmail: e.target.checked })}
                     className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <div className="flex-1">
@@ -264,7 +324,7 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
                   <input
                     type="checkbox"
                     checked={collectName}
-                    onChange={(e) => setCollectName(e.target.checked)}
+                    onChange={(e) => onBotChange({ collectName: e.target.checked })}
                     className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <div className="flex-1">
@@ -276,7 +336,7 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
                   <input
                     type="checkbox"
                     checked={collectPhone}
-                    onChange={(e) => setCollectPhone(e.target.checked)}
+                    onChange={(e) => onBotChange({ collectPhone: e.target.checked })}
                     className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <div className="flex-1">

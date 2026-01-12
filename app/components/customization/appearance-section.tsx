@@ -1,5 +1,6 @@
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Bot, COLORS } from '@/app/types/bot';
+import { Bot } from '@/app/types/bot';
 import {
   Bot as BotIcon,
   HelpCircle,
@@ -15,10 +16,62 @@ import {
 
 interface AppearanceSectionProps {
   bot: Bot;
+  savedBot: Bot | null;
   onBotChange: (updates: Partial<Bot>) => void;
 }
 
-export function AppearanceSection({ bot, onBotChange }: AppearanceSectionProps) {
+export function AppearanceSection({ bot, savedBot, onBotChange }: AppearanceSectionProps) {
+  // Initialize color history from saved bot or use default
+  const defaultColorHistory: (string | null)[] = [null, null, null, null, null, '#3B82F6'];
+  const [colorHistory, setColorHistory] = useState<(string | null)[]>(
+    savedBot?.colorHistory || defaultColorHistory
+  );
+  
+  // Track last processed savedBot to avoid duplicate updates
+  const lastProcessedBotId = useRef<string | undefined>(savedBot?.id);
+  const lastProcessedColor = useRef<string | undefined>(savedBot?.primaryColor);
+
+  // Initialize color history when bot changes or when loading saved data
+  useEffect(() => {
+    if (savedBot?.id !== lastProcessedBotId.current) {
+      // Bot changed - reset tracking and load colorHistory
+      lastProcessedBotId.current = savedBot?.id;
+      lastProcessedColor.current = savedBot?.primaryColor;
+      
+      if (savedBot?.colorHistory) {
+        setColorHistory(savedBot.colorHistory);
+      } else {
+        setColorHistory(defaultColorHistory);
+      }
+    } else if (savedBot?.primaryColor && savedBot.primaryColor !== lastProcessedColor.current) {
+      // Primary color changed after save - update history with FIFO
+      const color = savedBot.primaryColor;
+      lastProcessedColor.current = color;
+      
+      setColorHistory(prev => {
+        // Don't add if already in history
+        if (prev.includes(color)) {
+          return prev;
+        }
+
+        // FIFO: Always shift left and add new at end (keeping 6 items)
+        return [...prev.slice(1), color];
+      });
+    }
+  }, [savedBot]); // Trigger when savedBot changes
+
+  // Save colorHistory to bot state whenever it changes (so it gets persisted to database)
+  useEffect(() => {
+    if (colorHistory) {
+      onBotChange({ colorHistory: colorHistory });
+    }
+  }, [colorHistory]); // Save whenever colorHistory state changes
+
+  const handleColorPick = (color: string) => {
+    onBotChange({ primaryColor: color });
+    // Removed immediate history update - now handled by useEffect on savedBot
+  };
+
   return (
     <div className="p-6 space-y-8">
       {/* Brand Colors Section */}
@@ -49,39 +102,50 @@ export function AppearanceSection({ bot, onBotChange }: AppearanceSectionProps) 
           </div>
           
           <div className="space-y-3">
-            <label className="block text-xs font-medium text-slate-600 mb-2">Quick Select</label>
-            <div className="flex gap-2 flex-wrap">
-              {COLORS.map((color) => (
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-xs font-medium text-slate-600">Color Palette</label>
+              <span className="text-[10px] text-slate-400">Recent colors</span>
+            </div>
+            <div className="flex gap-2">
+              {colorHistory.map((color, index) => (
                 <button
-                  key={color}
-                  onClick={() => onBotChange({ primaryColor: color })}
-                  className={`w-10 h-10 rounded-lg border-2 transition-all hover:scale-110 hover:shadow-md ${
-                    (bot.primaryColor || '#3B82F6').toLowerCase() === color.toLowerCase()
-                      ? 'border-blue-500 ring-2 ring-blue-200 scale-110 shadow-md'
-                      : 'border-white ring-1 ring-slate-200 hover:ring-slate-300'
+                  key={index}
+                  onClick={() => color && onBotChange({ primaryColor: color })}
+                  disabled={!color}
+                  className={`flex-1 aspect-square rounded-lg border-2 transition-all ${
+                    color 
+                      ? 'hover:scale-105 hover:shadow-sm cursor-pointer' 
+                      : 'border-dashed border-slate-200 cursor-default bg-slate-50'
+                  } ${
+                    color && (bot.primaryColor || '#3B82F6').toLowerCase() === color.toLowerCase()
+                      ? 'border-blue-500 ring-2 ring-blue-200 shadow-sm'
+                      : color ? 'border-transparent' : ''
                   }`}
-                  style={{ backgroundColor: color }}
-                  title={color}
+                  style={color ? { backgroundColor: color } : {}}
+                  title={color || 'Empty slot'}
                 />
               ))}
             </div>
             
-            <div className="pt-2 border-t border-slate-100">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-slate-100 transition-colors">
-                  <Palette className="w-4 h-4 text-slate-600" />
+            <div className="pt-2 mt-2 border-t border-slate-100">
+              <label className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center bg-white shadow-sm group-hover:shadow transition-all">
+                    <Palette className="w-5 h-5 text-slate-600" />
+                  </div>
+                  <input
+                    type="color"
+                    value={bot.primaryColor || '#3B82F6'}
+                    onChange={(e) => handleColorPick(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    title="Pick a custom color"
+                  />
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs font-medium text-slate-700">Custom Color</p>
-                  <p className="text-xs text-slate-500">Pick any color you want</p>
+                  <p className="text-sm font-medium text-slate-700 group-hover:text-blue-600 transition-colors">Custom Color</p>
+                  <p className="text-xs text-slate-500">Click to pick any color</p>
                 </div>
-                <input
-                  type="color"
-                  value={bot.primaryColor || '#3B82F6'}
-                  onChange={(e) => onBotChange({ primaryColor: e.target.value })}
-                  className="w-10 h-10 rounded-lg cursor-pointer border border-slate-200"
-                  title="Custom Color"
-                />
+                <div className="w-8 h-8 rounded-full border border-slate-200" style={{ backgroundColor: bot.primaryColor || '#3B82F6' }} />
               </label>
             </div>
           </div>

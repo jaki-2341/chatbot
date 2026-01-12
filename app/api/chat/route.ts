@@ -22,7 +22,27 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messages, botId, knowledgeBase, agentName }: { messages: Message[]; botId?: string; knowledgeBase?: string; agentName?: string } = body;
+    const { 
+      messages, 
+      botId, 
+      knowledgeBase, 
+      agentName,
+      collectInfoEnabled,
+      collectName,
+      collectEmail,
+      collectPhone,
+      hasRequestedInfo
+    }: { 
+      messages: Message[]; 
+      botId?: string; 
+      knowledgeBase?: string; 
+      agentName?: string;
+      collectInfoEnabled?: boolean;
+      collectName?: boolean;
+      collectEmail?: boolean;
+      collectPhone?: boolean;
+      hasRequestedInfo?: boolean;
+    } = body;
     const lastMessage = messages.pop();
     if (!messages || !lastMessage || lastMessage.role !== "user") {
       return NextResponse.json(
@@ -48,30 +68,30 @@ export async function POST(request: NextRequest) {
       apiKey: apiKey, // Explicitly set the API key
     });
 
-    // createChatEngine now only indexes PDF files, not knowledge base
-    // Knowledge base is passed as instructions separately
-    const chatEngine = await createChatEngine(llm, botId, knowledgeBase, agentName);
+    // Check if this is the first user message
+    // After pop(), if there are no user messages in the remaining array, this is the first user message
+    const userMessages = messages.filter(m => m.role === 'user');
+    const isFirstUserMessage = userMessages.length === 0 && lastMessage.role === 'user';
+    
+    // Only ask for info if it's the first message AND info hasn't been requested before (localStorage check)
+    const shouldAskForInfo = isFirstUserMessage && !hasRequestedInfo;
 
-    // Prepare messages with knowledge base as system instruction
-    // Knowledge base is NOT indexed - it's used as instructions for the AI
-    let enhancedMessages = [...messages];
-    if (knowledgeBase && knowledgeBase.trim()) {
-      // Prepend knowledge base as a system message
-      let systemInstruction = knowledgeBase;
-      if (agentName) {
-        systemInstruction = `You are ${agentName}, a helpful customer support agent. ${knowledgeBase}`;
-      }
-      enhancedMessages = [
-        { id: 'system-instruction', role: 'system' as const, content: systemInstruction },
-        ...messages
-      ];
-    } else if (agentName) {
-      // If no knowledge base but agent name exists, add agent context as system message
-      enhancedMessages = [
-        { id: 'system-instruction', role: 'system' as const, content: `You are ${agentName}, a helpful customer support agent.` },
-        ...messages
-      ];
-    }
+    // createChatEngine now handles system prompt via contextSystemPrompt
+    const chatEngine = await createChatEngine(
+      llm, 
+      botId, 
+      knowledgeBase, 
+      agentName,
+      collectInfoEnabled,
+      collectName,
+      collectEmail,
+      collectPhone,
+      shouldAskForInfo,
+      hasRequestedInfo
+    );
+
+    // Prepare messages (system prompt is handled in contextSystemPrompt)
+    const enhancedMessages = [...messages];
 
     const response = await chatEngine.chat(lastMessage.content, enhancedMessages, true);
 

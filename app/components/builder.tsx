@@ -30,6 +30,10 @@ function hasBotChanges(currentBot: Bot, savedBot: Bot | null): boolean {
     'status',
     'avatarImage',
     'previewUrl',
+    'collectInfoEnabled',
+    'collectEmail',
+    'collectName',
+    'collectPhone',
   ];
 
   for (const field of fieldsToCompare) {
@@ -57,6 +61,18 @@ function hasBotChanges(currentBot: Bot, savedBot: Bot | null): boolean {
 
   for (let i = 0; i < currentFileNames.length; i++) {
     if (currentFileNames[i] !== savedFileNames[i]) {
+      return true;
+    }
+  }
+
+  // Compare suggestedQuestions arrays
+  const currentQuestions = (currentBot.suggestedQuestions || []).sort();
+  const savedQuestions = (savedBot.suggestedQuestions || []).sort();
+  if (currentQuestions.length !== savedQuestions.length) {
+    return true;
+  }
+  for (let i = 0; i < currentQuestions.length; i++) {
+    if (currentQuestions[i] !== savedQuestions[i]) {
       return true;
     }
   }
@@ -199,6 +215,7 @@ export default function Builder({ bot: initialBot, onBack, onSave }: BuilderProp
       <div className="flex flex-1 overflow-hidden">
         <CustomizationSidebar
           bot={bot}
+          savedBot={savedBot}
           onBotChange={handleBotChange}
           onBack={onBack}
           onSave={() => {}}

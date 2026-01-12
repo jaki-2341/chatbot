@@ -282,8 +282,74 @@ async function createCombinedIndex(llm: LLM, botId?: string, agentName?: string)
   return index;
 }
 
-export async function createChatEngine(llm: LLM, botId?: string, knowledgeBase?: string, agentName?: string) {
+export async function createChatEngine(
+  llm: LLM, 
+  botId?: string, 
+  knowledgeBase?: string, 
+  agentName?: string,
+  collectInfoEnabled?: boolean,
+  collectName?: boolean,
+  collectEmail?: boolean,
+  collectPhone?: boolean,
+  isFirstUserMessage?: boolean,
+  hasRequestedInfo?: boolean
+) {
   const hasKnowledgeBase = knowledgeBase && knowledgeBase.trim();
+  
+  // Build base system prompt
+  let baseSystemPrompt = '';
+  if (agentName) {
+    baseSystemPrompt = `You are ${agentName}, a helpful customer support agent.`;
+  } else {
+    baseSystemPrompt = `You are a helpful customer support agent.`;
+  }
+  
+  if (hasKnowledgeBase) {
+    baseSystemPrompt += ` ${knowledgeBase}`;
+  }
+  
+  // Note: Information collection is now handled separately in the UI
+  // The AI should respond normally to the first message without asking for information
+  
+  // Add instruction for handling user information when it's provided
+  if (collectInfoEnabled) {
+    baseSystemPrompt += `\n\nCRITICAL - USER INFORMATION HANDLING: When you receive a message that says "I've provided my information:" followed by Name, Email, or Phone, this means the user has completed a form. DO NOT repeat back their information. DO NOT say "Thank you for providing your name, [name]" or list what they provided. 
+
+Respond warmly and naturally with ONE brief, friendly sentence that acknowledges them and invites them to continue. Make it feel personal and welcoming. Examples of good responses:
+- "Wonderful! I'm here to help. What can I do for you today?"
+- "Perfect! I'm ready to assist you. How can I help?"
+- "Excellent! I'd be happy to help. What would you like to know?"
+- "Thank you! I'm here for you. What can I assist you with today?"
+- "Great to have that information! How can I be of service?"
+
+Keep it warm, friendly, and conversational. Immediately transition to asking how you can help. Never mention their name, email, or phone number in your response.`;
+  }
+  
+  // Add contextual response instructions based on conversation state
+  if (isFirstUserMessage && !hasRequestedInfo) {
+    // First message and info not requested yet: Answer directly without generic follow-ups
+    baseSystemPrompt += `\n\nCRITICAL - FIRST MESSAGE RESPONSE: This is the user's first message. Provide a direct, helpful answer to their question or request. DO NOT add generic follow-up questions like "How can I help you?" or "What can I do for you?" at the end. Focus solely on answering their question completely and accurately.`;
+  } else if (hasRequestedInfo) {
+    // Info has been requested (localStorage flag is true): Include a follow-up question
+    baseSystemPrompt += `\n\nCRITICAL - CONVERSATION CONTINUITY: After providing your answer, include a contextual follow-up question to keep the conversation engaging. Examples:
+- If they asked about a specific topic: "Do you have any more questions about [topic]?"
+- If they asked about services: "Would you like to know more about any of our services?"
+- If they asked a general question: "Is there anything else I can help you with?"
+- If continuing a previous topic: "Would you like me to elaborate on [previous topic]?"
+
+Keep the follow-up relevant to the conversation context. Make it feel natural and conversational.`;
+  } else {
+    // Subsequent messages (not first, and info not requested): Maintain context and ask topic-specific follow-ups
+    baseSystemPrompt += `\n\nCRITICAL - CONVERSATION CONTINUITY: Maintain context from previous messages. When the user asks a new question or continues the conversation:
+1. Answer their question directly and completely
+2. Reference previous conversation topics when relevant
+3. Ask a topic-specific follow-up question related to what was just discussed, such as:
+   - "Do you have any more questions about [current topic]?"
+   - "Would you like me to explain more about [related aspect]?"
+   - "Is there anything specific about [topic] you'd like to know?"
+
+Avoid generic questions like "How can I help you?" Instead, ask questions that show you're following the conversation and understand the context.`;
+  }
   
   // Check if documents exist for this bot
   const fileDocuments = await loadDocumentsFromDirectory(botId);
@@ -332,6 +398,9 @@ export async function createChatEngine(llm: LLM, botId?: string, knowledgeBase?:
     return new ContextChatEngine({
       chatModel: llm,
       retriever,
+      contextSystemPrompt: ({ context }) => {
+        return `${baseSystemPrompt}\n\nContext from knowledge base:\n${context || 'No additional context available.'}`;
+      },
     });
   }
   
@@ -396,5 +465,8 @@ export async function createChatEngine(llm: LLM, botId?: string, knowledgeBase?:
   return new ContextChatEngine({
     chatModel: llm,
     retriever,
+    contextSystemPrompt: ({ context }) => {
+      return `${baseSystemPrompt}\n\nContext from knowledge base:\n${context || 'No additional context available.'}`;
+    },
   });
 }

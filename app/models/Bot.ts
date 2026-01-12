@@ -16,6 +16,13 @@ export interface BotDocument {
   avatarImage?: string; // Base64 encoded image or image URL
   previewUrl?: string; // Website URL for preview iframe
   status?: 'Active' | 'Inactive'; // Bot status for dashboard
+  welcomeDescription?: string;
+  suggestedQuestions?: string[];
+  colorHistory?: (string | null)[]; // Color palette history (6 slots)
+  collectInfoEnabled?: boolean; // Enable information collection
+  collectEmail?: boolean; // Collect email address
+  collectName?: boolean; // Collect full name
+  collectPhone?: boolean; // Collect phone number
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -36,6 +43,13 @@ export function botToDocument(bot: any): BotDocument {
     avatarImage: bot.avatarImage,
     previewUrl: bot.previewUrl,
     status: bot.status || 'Inactive',
+    welcomeDescription: bot.welcomeDescription,
+    suggestedQuestions: bot.suggestedQuestions,
+    colorHistory: bot.colorHistory,
+    collectInfoEnabled: bot.collectInfoEnabled,
+    collectEmail: bot.collectEmail,
+    collectName: bot.collectName,
+    collectPhone: bot.collectPhone,
     createdAt: bot.createdAt || new Date(),
     updatedAt: new Date(),
   };
@@ -57,6 +71,13 @@ export function documentToBot(doc: BotDocument): any {
     avatarImage: doc.avatarImage,
     previewUrl: doc.previewUrl,
     status: doc.status || 'Inactive',
+    welcomeDescription: doc.welcomeDescription,
+    suggestedQuestions: doc.suggestedQuestions,
+    colorHistory: doc.colorHistory,
+    collectInfoEnabled: doc.collectInfoEnabled,
+    collectEmail: doc.collectEmail,
+    collectName: doc.collectName,
+    collectPhone: doc.collectPhone,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };

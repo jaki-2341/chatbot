@@ -47,6 +47,11 @@ export async function GET(
         avatarImage: botData.avatarImage,
         knowledgeBase: botData.knowledgeBase,
         status: botData.status || 'Inactive',
+        suggestedQuestions: botData.suggestedQuestions,
+        collectInfoEnabled: botData.collectInfoEnabled,
+        collectName: botData.collectName,
+        collectEmail: botData.collectEmail,
+        collectPhone: botData.collectPhone,
       },
       { headers: corsHeaders }
     );
