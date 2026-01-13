@@ -142,7 +142,7 @@ export default function TemplateSelectionPanel({
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-2">Choose a template</h3>
               <p className="text-sm text-slate-600">
-                Here's a few templates to get you started, or you can create your own template and use it to create a new assistant.
+                Here&apos;s a few templates to get you started, or you can create your own template and use it to create a new assistant.
               </p>
             </div>
 
