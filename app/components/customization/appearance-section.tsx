@@ -12,6 +12,7 @@ import {
   Sparkles,
   Upload,
   X,
+  UserCircle,
 } from 'lucide-react';
 
 interface AppearanceSectionProps {
@@ -219,75 +220,166 @@ export function AppearanceSection({ bot, savedBot, onBotChange }: AppearanceSect
         </div>
       </div>
 
-      {/* Widget Icon Section */}
+      {/* Button Display Section */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-1">
-          <div className="p-1.5 bg-green-50 rounded-lg">
-            <MousePointerClick className="w-4 h-4 text-green-600" />
+          <div className="p-1.5 bg-purple-50 rounded-lg">
+            <UserCircle className="w-4 h-4 text-purple-600" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">Widget Icon</h3>
-            <p className="text-xs text-slate-500">Choose the icon for your chat button</p>
+            <h3 className="text-sm font-semibold text-slate-900">Button Display</h3>
+            <p className="text-xs text-slate-500">Choose what to show on the floating button</p>
           </div>
         </div>
         
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <label className="flex items-center justify-between cursor-pointer group">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg transition-colors ${
+                bot.showAvatarOnButton ? 'bg-purple-100' : 'bg-slate-100'
+              }`}>
+                <UserCircle className={`w-4 h-4 ${
+                  bot.showAvatarOnButton ? 'text-purple-600' : 'text-slate-400'
+                }`} />
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-slate-900 block">Show Avatar on Button</span>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {bot.showAvatarOnButton ? 'Avatar image will be displayed' : 'Icon will be displayed'}
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-block w-11 h-6 align-middle select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={bot.showAvatarOnButton || false}
+                onChange={(e) => onBotChange({ showAvatarOnButton: e.target.checked })}
+                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-300 checked:left-[calc(100%-1.25rem)] checked:border-blue-500 transition-all opacity-0 z-10"
+              />
+              <span
+                className={`block overflow-hidden h-6 rounded-full transition-colors duration-200 ${
+                  bot.showAvatarOnButton ? 'bg-blue-500' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all duration-200 shadow-sm ${
+                    bot.showAvatarOnButton ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'
+                  }`}
+                ></span>
+              </span>
+            </label>
+          </label>
+          {bot.showAvatarOnButton && !bot.avatarImage && (
+            <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-xs text-amber-700">
+                No avatar image set. Upload an avatar image above to see it on the button.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Widget Icon Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <div className={`p-1.5 rounded-lg transition-colors ${
+            bot.showAvatarOnButton ? 'bg-slate-100' : 'bg-green-50'
+          }`}>
+            <MousePointerClick className={`w-4 h-4 transition-colors ${
+              bot.showAvatarOnButton ? 'text-slate-400' : 'text-green-600'
+            }`} />
+          </div>
+          <div>
+            <h3 className={`text-sm font-semibold transition-colors ${
+              bot.showAvatarOnButton ? 'text-slate-500' : 'text-slate-900'
+            }`}>Widget Icon</h3>
+            <p className="text-xs text-slate-500">
+              {bot.showAvatarOnButton ? 'Disabled when avatar is shown' : 'Choose the icon for your chat button'}
+            </p>
+          </div>
+        </div>
+        
+        <div className={`bg-white rounded-xl border p-4 shadow-sm transition-all ${
+          bot.showAvatarOnButton 
+            ? 'border-slate-200 opacity-50 cursor-not-allowed' 
+            : 'border-slate-200'
+        }`}>
           <div className="grid grid-cols-4 gap-3">
             <div className="flex flex-col items-center gap-2">
               <button
-                onClick={() => onBotChange({ widgetIcon: 'message-circle' })}
-                className={`w-full p-4 border-2 rounded-xl flex items-center justify-center transition-all hover:scale-105 hover:shadow-md ${
-                  bot.widgetIcon === 'message-circle'
-                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                onClick={() => !bot.showAvatarOnButton && onBotChange({ widgetIcon: 'message-circle' })}
+                disabled={bot.showAvatarOnButton}
+                className={`w-full p-4 border-2 rounded-xl flex items-center justify-center transition-all ${
+                  bot.showAvatarOnButton
+                    ? 'border-slate-200 text-slate-300 cursor-not-allowed'
+                    : bot.widgetIcon === 'message-circle'
+                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:scale-105 hover:shadow-md'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:scale-105 hover:shadow-md'
                 }`}
                 title="Message Circle"
               >
                 <MessageCircle className="w-6 h-6" />
               </button>
-              <span className="text-xs font-medium text-slate-700">Message</span>
+              <span className={`text-xs font-medium ${
+                bot.showAvatarOnButton ? 'text-slate-400' : 'text-slate-700'
+              }`}>Message</span>
             </div>
             <div className="flex flex-col items-center gap-2">
               <button
-                onClick={() => onBotChange({ widgetIcon: 'bot' })}
-                className={`w-full p-4 border-2 rounded-xl flex items-center justify-center transition-all hover:scale-105 hover:shadow-md ${
-                  bot.widgetIcon === 'bot'
-                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                onClick={() => !bot.showAvatarOnButton && onBotChange({ widgetIcon: 'bot' })}
+                disabled={bot.showAvatarOnButton}
+                className={`w-full p-4 border-2 rounded-xl flex items-center justify-center transition-all ${
+                  bot.showAvatarOnButton
+                    ? 'border-slate-200 text-slate-300 cursor-not-allowed'
+                    : bot.widgetIcon === 'bot'
+                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:scale-105 hover:shadow-md'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:scale-105 hover:shadow-md'
                 }`}
                 title="Bot"
               >
                 <BotIcon className="w-6 h-6" />
               </button>
-              <span className="text-xs font-medium text-slate-700">Bot</span>
+              <span className={`text-xs font-medium ${
+                bot.showAvatarOnButton ? 'text-slate-400' : 'text-slate-700'
+              }`}>Bot</span>
             </div>
             <div className="flex flex-col items-center gap-2">
               <button
-                onClick={() => onBotChange({ widgetIcon: 'sparkles' })}
-                className={`w-full p-4 border-2 rounded-xl flex items-center justify-center transition-all hover:scale-105 hover:shadow-md ${
-                  bot.widgetIcon === 'sparkles'
-                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                onClick={() => !bot.showAvatarOnButton && onBotChange({ widgetIcon: 'sparkles' })}
+                disabled={bot.showAvatarOnButton}
+                className={`w-full p-4 border-2 rounded-xl flex items-center justify-center transition-all ${
+                  bot.showAvatarOnButton
+                    ? 'border-slate-200 text-slate-300 cursor-not-allowed'
+                    : bot.widgetIcon === 'sparkles'
+                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:scale-105 hover:shadow-md'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:scale-105 hover:shadow-md'
                 }`}
                 title="Sparkles"
               >
                 <Sparkles className="w-6 h-6" />
               </button>
-              <span className="text-xs font-medium text-slate-700">Sparkles</span>
+              <span className={`text-xs font-medium ${
+                bot.showAvatarOnButton ? 'text-slate-400' : 'text-slate-700'
+              }`}>Sparkles</span>
             </div>
             <div className="flex flex-col items-center gap-2">
               <button
-                onClick={() => onBotChange({ widgetIcon: 'help-circle' })}
-                className={`w-full p-4 border-2 rounded-xl flex items-center justify-center transition-all hover:scale-105 hover:shadow-md ${
-                  bot.widgetIcon === 'help-circle'
-                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm'
-                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                onClick={() => !bot.showAvatarOnButton && onBotChange({ widgetIcon: 'help-circle' })}
+                disabled={bot.showAvatarOnButton}
+                className={`w-full p-4 border-2 rounded-xl flex items-center justify-center transition-all ${
+                  bot.showAvatarOnButton
+                    ? 'border-slate-200 text-slate-300 cursor-not-allowed'
+                    : bot.widgetIcon === 'help-circle'
+                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:scale-105 hover:shadow-md'
+                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:scale-105 hover:shadow-md'
                 }`}
                 title="Help Circle"
               >
                 <HelpCircle className="w-6 h-6" />
               </button>
-              <span className="text-xs font-medium text-slate-700">Help</span>
+              <span className={`text-xs font-medium ${
+                bot.showAvatarOnButton ? 'text-slate-400' : 'text-slate-700'
+              }`}>Help</span>
             </div>
           </div>
         </div>

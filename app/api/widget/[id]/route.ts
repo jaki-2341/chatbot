@@ -44,6 +44,7 @@ export async function GET(
         role: botData.role,
         inputPlaceholder: botData.inputPlaceholder,
         widgetIcon: botData.widgetIcon,
+        showAvatarOnButton: botData.showAvatarOnButton,
         avatarImage: botData.avatarImage,
         knowledgeBase: botData.knowledgeBase,
         status: botData.status || 'Inactive',

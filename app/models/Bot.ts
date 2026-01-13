@@ -11,6 +11,7 @@ export interface BotDocument {
   role?: string; // Role/tag displayed in header
   inputPlaceholder?: string; // Placeholder text for the chat input field
   widgetIcon?: 'message-circle' | 'bot' | 'sparkles' | 'help-circle'; // Widget icon type
+  showAvatarOnButton?: boolean; // Show avatar image on floating button instead of icon
   knowledgeBase?: string;
   files?: string[]; // File names or IDs stored in MongoDB
   avatarImage?: string; // Base64 encoded image or image URL
@@ -20,6 +21,7 @@ export interface BotDocument {
   suggestedQuestions?: string[];
   colorHistory?: (string | null)[]; // Color palette history (6 slots)
   collectInfoEnabled?: boolean; // Enable information collection
+  leadReceiverEmail?: string; // Email address to receive collected leads
   collectEmail?: boolean; // Collect email address
   collectName?: boolean; // Collect full name
   collectPhone?: boolean; // Collect phone number
@@ -38,6 +40,7 @@ export function botToDocument(bot: any): BotDocument {
     role: bot.role,
     inputPlaceholder: bot.inputPlaceholder,
     widgetIcon: bot.widgetIcon,
+    showAvatarOnButton: bot.showAvatarOnButton,
     knowledgeBase: bot.knowledgeBase,
     files: bot.files?.map((f: any) => typeof f === 'string' ? f : f.name) || undefined,
     avatarImage: bot.avatarImage,
@@ -47,6 +50,7 @@ export function botToDocument(bot: any): BotDocument {
     suggestedQuestions: bot.suggestedQuestions,
     colorHistory: bot.colorHistory,
     collectInfoEnabled: bot.collectInfoEnabled,
+    leadReceiverEmail: bot.leadReceiverEmail,
     collectEmail: bot.collectEmail,
     collectName: bot.collectName,
     collectPhone: bot.collectPhone,
@@ -66,6 +70,7 @@ export function documentToBot(doc: BotDocument): any {
     role: doc.role,
     inputPlaceholder: doc.inputPlaceholder,
     widgetIcon: doc.widgetIcon,
+    showAvatarOnButton: doc.showAvatarOnButton,
     knowledgeBase: doc.knowledgeBase,
     files: doc.files,
     avatarImage: doc.avatarImage,
@@ -75,6 +80,7 @@ export function documentToBot(doc: BotDocument): any {
     suggestedQuestions: doc.suggestedQuestions,
     colorHistory: doc.colorHistory,
     collectInfoEnabled: doc.collectInfoEnabled,
+    leadReceiverEmail: doc.leadReceiverEmail,
     collectEmail: doc.collectEmail,
     collectName: doc.collectName,
     collectPhone: doc.collectPhone,

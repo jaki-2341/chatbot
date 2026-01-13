@@ -31,9 +31,11 @@ function hasBotChanges(currentBot: Bot, savedBot: Bot | null): boolean {
     'avatarImage',
     'previewUrl',
     'collectInfoEnabled',
+    'leadReceiverEmail',
     'collectEmail',
     'collectName',
     'collectPhone',
+    'showAvatarOnButton',
   ];
 
   for (const field of fieldsToCompare) {

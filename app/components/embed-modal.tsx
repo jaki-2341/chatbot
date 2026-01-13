@@ -2,7 +2,7 @@
 
 import { Bot } from '@/app/types/bot';
 import { X, Copy, Check } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface EmbedModalProps {
   bot: Bot;
@@ -10,25 +10,25 @@ interface EmbedModalProps {
 }
 
 export default function EmbedModal({ bot, onClose }: EmbedModalProps) {
+  const [baseUrl, setBaseUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // jsDelivr GitHub CDN URL for loader.js
-  // Format: https://cdn.jsdelivr.net/gh/username/repo@branch/path/to/loader.js
-  const GITHUB_USERNAME = 'jaki-2341';
-  const GITHUB_REPO = 'chatbot';
-  const GITHUB_BRANCH = 'master'; // Use 'master' for latest, or a version tag like 'v1.0.0' for production
-  const LOADER_PATH = 'public/loader.js'; // Path to loader.js in your repo (adjust if your repo structure is different)
-  
-  const loaderCdnUrl = `https://cdn.jsdelivr.net/gh/${GITHUB_USERNAME}/${GITHUB_REPO}@${GITHUB_BRANCH}/${LOADER_PATH}`;
+  useEffect(() => {
+    // Get the current origin for the embed code
+    if (typeof window !== 'undefined') {
+      setBaseUrl(window.location.origin);
+    }
+  }, []);
 
   const code = `<!-- Paste this code before the </body> tag -->
 <script>
   window.chatbotConfig = {
     id: "${bot.id}",
-    position: "${bot.position}"
+    position: "${bot.position}",
+    apiUrl: "${baseUrl}"
   };
 </script>
-<script src="${loaderCdnUrl}" data-api-url="${typeof window !== 'undefined' ? window.location.origin : ''}" async defer></script>`;
+<script src="${baseUrl}/loader.js" async defer></script>`;
 
   const handleCopy = async () => {
     try {

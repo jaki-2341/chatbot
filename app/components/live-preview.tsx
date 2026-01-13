@@ -347,10 +347,38 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
       id: `hidden-info-${Date.now()}` // Special ID prefix for filtering
     });
     
+    // Send lead to backend for storage and email
+    sendLeadToBackend(infoToSend);
+    
     // Clear collected info and fields
     setCollectedInfo({});
     setCollectedFields(new Set());
-  }, [append]);
+  }, [append, bot.id]);
+
+  // Send lead data to backend API
+  const sendLeadToBackend = useCallback(async (leadData: {name?: string, email?: string, phone?: string}) => {
+    try {
+      // Only send if we have at least one piece of information
+      if (!leadData.name && !leadData.email && !leadData.phone) {
+        return;
+      }
+
+      await fetch('/api/leads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          botId: bot.id,
+          name: leadData.name,
+          email: leadData.email,
+          phone: leadData.phone,
+        }),
+      });
+    } catch (error) {
+      // Silently fail - don't show error to user
+    }
+  }, [bot.id]);
 
   const handleInfoSubmit = (field: string, value: string, skipped: boolean = false) => {
     // If not skipped, validate value
@@ -1135,7 +1163,7 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
         {/* Toggle Button */}
         <button
           onClick={() => setIsChatOpen(!isChatOpen)}
-          className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95"
+          className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95 overflow-hidden"
           style={{ 
             backgroundColor: bot.primaryColor || '#3B82F6',
             animation: isChatOpen ? 'none' : 'chatbot-pulse 2s ease-in-out infinite',
@@ -1150,6 +1178,15 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
         >
           {isChatOpen ? (
             <X className="w-7 h-7" />
+          ) : bot.showAvatarOnButton && bot.avatarImage ? (
+            <Image
+              src={bot.avatarImage}
+              alt={bot.agentName || bot.name || 'Bot'}
+              width={56}
+              height={56}
+              className="w-full h-full object-cover"
+              unoptimized
+            />
           ) : bot.widgetIcon === 'message-circle' ? (
             <MessageCircle className="w-7 h-7" />
           ) : bot.widgetIcon === 'bot' ? (

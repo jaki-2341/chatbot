@@ -13,6 +13,7 @@ import {
   HelpCircle,
   Plus,
   Trash2,
+  Mail,
 } from 'lucide-react';
 
 interface ConfigSectionProps {
@@ -25,9 +26,18 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
   
   // Use bot state for collect info settings
   const collectInfoEnabled = bot.collectInfoEnabled || false;
+  const leadReceiverEmail = bot.leadReceiverEmail || '';
   const collectEmail = bot.collectEmail !== undefined ? bot.collectEmail : true;
   const collectName = bot.collectName || false;
   const collectPhone = bot.collectPhone || false;
+  
+  // Email validation regex
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  // Check if receiver email is set and valid
+  const isValidEmail = leadReceiverEmail.trim().length > 0 && emailRegex.test(leadReceiverEmail.trim());
+  const hasReceiverEmail = leadReceiverEmail.trim().length > 0;
+  const showEmailError = hasReceiverEmail && !isValidEmail;
 
   const handleAddQuestion = () => {
     if (!newQuestion.trim()) return;
@@ -306,44 +316,109 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
             </label>
 
             {collectInfoEnabled && (
-              <div className="mt-4 bg-slate-50 p-4 rounded-lg border border-slate-100 space-y-3">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Fields to Request</p>
-                <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors cursor-pointer group">
+              <div className="mt-4 bg-slate-50 p-4 rounded-lg border border-slate-100 space-y-4">
+                {/* Email Receiver Field - Must be set first */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                    <Mail className="w-4 h-4 text-slate-500" />
+                    Lead Notification Email
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={collectEmail}
-                    onChange={(e) => onBotChange({ collectEmail: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    type="email"
+                    value={leadReceiverEmail}
+                    onChange={(e) => onBotChange({ leadReceiverEmail: e.target.value })}
+                    placeholder="your-email@example.com"
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 transition-all text-sm ${
+                      showEmailError
+                        ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
+                        : 'border-slate-300 focus:border-blue-500 focus:ring-blue-500/20'
+                    }`}
                   />
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-slate-700">Email Address</span>
-                    <p className="text-xs text-slate-500">Collect user&apos;s email</p>
+                  {showEmailError ? (
+                    <p className="text-xs text-red-600 mt-1.5 flex items-center gap-1">
+                      <Info className="w-3 h-3" />
+                      Please enter a valid email address
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500 mt-1.5">Email address where collected leads will be sent</p>
+                  )}
+                </div>
+
+                {/* Divider */}
+                {isValidEmail && (
+                  <>
+                    <div className="flex items-center gap-2 my-2">
+                      <div className="h-px flex-1 bg-slate-200"></div>
+                      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Fields to Request</p>
+                      <div className="h-px flex-1 bg-slate-200"></div>
+                    </div>
+
+                    {/* Field Selection Checkboxes */}
+                    <div className="space-y-3">
+                      <label className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
+                        isValidEmail ? 'hover:bg-white' : 'opacity-50 cursor-not-allowed'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={collectEmail}
+                          onChange={(e) => onBotChange({ collectEmail: e.target.checked })}
+                          disabled={!isValidEmail}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-slate-700">Email Address</span>
+                          <p className="text-xs text-slate-500">Collect user&apos;s email</p>
+                        </div>
+                      </label>
+                      <label className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
+                        isValidEmail ? 'hover:bg-white' : 'opacity-50 cursor-not-allowed'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={collectName}
+                          onChange={(e) => onBotChange({ collectName: e.target.checked })}
+                          disabled={!isValidEmail}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-slate-700">Full Name</span>
+                          <p className="text-xs text-slate-500">Collect user&apos;s full name</p>
+                        </div>
+                      </label>
+                      <label className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
+                        isValidEmail ? 'hover:bg-white' : 'opacity-50 cursor-not-allowed'
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={collectPhone}
+                          onChange={(e) => onBotChange({ collectPhone: e.target.checked })}
+                          disabled={!isValidEmail}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-slate-700">Phone Number</span>
+                          <p className="text-xs text-slate-500">Collect user&apos;s phone number</p>
+                        </div>
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                {!hasReceiverEmail && (
+                  <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs text-amber-700">
+                      Please enter a notification email address above to enable field selection.
+                    </p>
                   </div>
-                </label>
-                <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={collectName}
-                    onChange={(e) => onBotChange({ collectName: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-slate-700">Full Name</span>
-                    <p className="text-xs text-slate-500">Collect user&apos;s full name</p>
+                )}
+
+                {showEmailError && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-xs text-red-700">
+                      Please enter a valid email address to enable field selection.
+                    </p>
                   </div>
-                </label>
-                <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-white transition-colors cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={collectPhone}
-                    onChange={(e) => onBotChange({ collectPhone: e.target.checked })}
-                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-slate-700">Phone Number</span>
-                    <p className="text-xs text-slate-500">Collect user&apos;s phone number</p>
-                  </div>
-                </label>
+                )}
               </div>
             )}
           </div>

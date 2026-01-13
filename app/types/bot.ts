@@ -8,6 +8,7 @@ export interface Bot {
   role?: string; // Role/tag displayed in header (e.g., "Customer Support Agent")
   inputPlaceholder?: string; // Placeholder text for the chat input field
   widgetIcon?: 'message-circle' | 'bot' | 'sparkles' | 'help-circle'; // Widget icon type
+  showAvatarOnButton?: boolean; // Show avatar image on floating button instead of icon
   knowledgeBase?: string;
   files?: (File | string)[]; // Can be File objects (in memory) or strings (serialized)
   avatarImage?: string; // Base64 encoded image or image URL
@@ -17,6 +18,7 @@ export interface Bot {
   suggestedQuestions?: string[]; // Array of quick starter questions
   colorHistory?: (string | null)[]; // Color palette history (6 slots)
   collectInfoEnabled?: boolean; // Enable information collection
+  leadReceiverEmail?: string; // Email address to receive collected leads
   collectEmail?: boolean; // Collect email address
   collectName?: boolean; // Collect full name
   collectPhone?: boolean; // Collect phone number

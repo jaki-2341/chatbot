@@ -5,12 +5,15 @@ import Header from './components/header';
 import Dashboard from './components/dashboard';
 import Builder from './components/builder';
 import EmbedModal from './components/embed-modal';
+import Login from './components/login';
 import { Bot } from './types/bot';
 import { useBots } from './hooks/use-bots';
+import { useAuth } from './contexts/auth-context';
 
 type View = 'dashboard' | 'builder';
 
 export default function Home() {
+  const { isAuthenticated, isLoading, login } = useAuth();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [editingBot, setEditingBot] = useState<Bot | undefined>();
   const [embedModalBot, setEmbedModalBot] = useState<Bot | null>(null);
@@ -105,6 +108,27 @@ export default function Home() {
   const handleShowEmbed = (bot: Bot) => {
     setEmbedModalBot(bot);
   };
+
+  const handleLoginSuccess = () => {
+    login();
+  };
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="bg-slate-50 text-slate-800 h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <div className="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">

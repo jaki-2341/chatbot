@@ -9,44 +9,7 @@
   // Get configuration from window
   const config = window.chatbotConfig || {};
   const botId = config.id;
-  
-  // Determine API base URL (in order of priority):
-  // 1. Use config.apiUrl if provided (for custom API endpoints)
-  // 2. Use data-api-url attribute from the script tag (set in embed code)
-  // 3. Try to detect from current script's origin (if script is on same domain as API)
-  // 4. Fallback to window.location.origin (for same-origin deployments)
-  let apiBaseUrl = config.apiUrl;
-  
-  if (!apiBaseUrl) {
-    // Try to get API URL from script tag's data-api-url attribute
-    const scripts = document.getElementsByTagName('script');
-    for (let i = 0; i < scripts.length; i++) {
-      const script = scripts[i];
-      if (script.src && script.src.includes('loader.js')) {
-        const dataApiUrl = script.getAttribute('data-api-url');
-        if (dataApiUrl) {
-          apiBaseUrl = dataApiUrl;
-          break;
-        }
-        // Also try to detect from script's origin if it's from same domain
-        try {
-          const scriptUrl = new URL(script.src);
-          // Only use script origin if it's not a CDN (jsdelivr, cdnjs, etc.)
-          if (!scriptUrl.hostname.includes('cdn.') && !scriptUrl.hostname.includes('jsdelivr')) {
-            apiBaseUrl = scriptUrl.origin;
-            break;
-          }
-        } catch (e) {
-          // Invalid URL, continue
-        }
-      }
-    }
-    
-    // Final fallback to window.location.origin
-    if (!apiBaseUrl) {
-      apiBaseUrl = window.location.origin;
-    }
-  }
+  const apiBaseUrl = config.apiUrl || window.location.origin;
 
   if (!botId) {
     console.error('ChatbotWidget: bot id is required in window.chatbotConfig');
@@ -176,6 +139,18 @@
         transition: transform 0.2s;
         color: white;
         animation: chatbot-pulse 2s ease-in-out infinite;
+        overflow: hidden;
+        padding: 0;
+      }
+      .chatbot-widget-button.has-avatar {
+        background-color: transparent;
+      }
+      .chatbot-widget-button.has-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+        display: block;
       }
       .chatbot-widget-button:hover {
         transform: scale(1.05);
@@ -665,7 +640,7 @@
         padding: 32px 32px 64px 32px;
         position: relative;
         overflow: hidden;
-        border-radius: 0;
+        border-radius: 0 0 2.5rem 2.5rem;
       }
       .chatbot-widget-welcome-header-gradient {
         position: absolute;
@@ -1014,8 +989,14 @@
     button.className = 'chatbot-widget-button';
     button.setAttribute('aria-label', 'Open chat');
     button.id = 'chatbot-widget-toggle-button';
-  // Set initial icon based on widgetIcon preference (directly, before DOM append)
-  button.innerHTML = getIconSVG(botData?.widgetIcon || 'message-circle');
+    // Set initial icon based on showAvatarOnButton or widgetIcon preference
+    if (botData?.showAvatarOnButton && botData?.avatarImage) {
+      button.classList.add('has-avatar');
+      button.innerHTML = `<img src="${botData.avatarImage}" alt="${botData.agentName || botData.name || 'Bot'}" />`;
+    } else {
+      button.classList.remove('has-avatar');
+      button.innerHTML = getIconSVG(botData?.widgetIcon || 'message-circle');
+    }
     button.onclick = toggleWidget;
 
     // Create window
@@ -2229,9 +2210,44 @@
     // Send to API directly without showing in UI
     sendInfoToAPI(summaryMessage);
     
+    // Save collected info before clearing (for async function)
+    const leadData = {
+      name: collectedInfo.name,
+      email: collectedInfo.email,
+      phone: collectedInfo.phone,
+    };
+    
+    // Send lead to backend for storage and email
+    sendLeadToBackend(leadData);
+    
     // Clear collected info
     collectedInfo = {};
     collectedFields = new Set();
+  }
+
+  // Send lead data to backend API
+  async function sendLeadToBackend(leadData) {
+    try {
+      // Only send if we have at least one piece of information
+      if (!leadData.name && !leadData.email && !leadData.phone) {
+        return;
+      }
+
+      await fetch(`${apiBaseUrl}/api/leads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          botId: botData.id,
+          name: leadData.name,
+          email: leadData.email,
+          phone: leadData.phone,
+        }),
+      });
+    } catch (error) {
+      // Silently fail - don't show error to user
+    }
   }
   
   // Send info to API without showing in UI
@@ -2540,11 +2556,20 @@
     
     if (isOpen) {
       // X icon when open
+      button.classList.remove('has-avatar');
       button.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
     } else {
-      // Use selected widget icon when closed
-      const iconType = botData?.widgetIcon || 'message-circle';
-      button.innerHTML = getIconSVG(iconType);
+      // Check if avatar should be shown on button
+      if (botData?.showAvatarOnButton && botData?.avatarImage) {
+        // Show avatar image
+        button.classList.add('has-avatar');
+        button.innerHTML = `<img src="${botData.avatarImage}" alt="${botData.agentName || botData.name || 'Bot'}" />`;
+      } else {
+        // Use selected widget icon when closed
+        button.classList.remove('has-avatar');
+        const iconType = botData?.widgetIcon || 'message-circle';
+        button.innerHTML = getIconSVG(iconType);
+      }
     }
   }
 
