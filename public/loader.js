@@ -143,7 +143,7 @@
         padding: 0;
       }
       .chatbot-widget-button.has-avatar {
-        background-color: transparent;
+        background-color: ${primaryColor};
       }
       .chatbot-widget-button.has-avatar img {
         width: 100%;
