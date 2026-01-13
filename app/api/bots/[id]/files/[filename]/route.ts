@@ -5,8 +5,8 @@ import { getDatabase } from '@/lib/mongodb';
 import { documentToBot, BotDocument } from '@/app/models/Bot';
 import { rm } from 'fs/promises';
 
-const STORAGE_DIR = './data';
-const STORAGE_CACHE_DIR = './cache';
+const STORAGE_DIR = '/tmp/data';
+const STORAGE_CACHE_DIR = '/tmp/cache';
 
 // DELETE /api/bots/[id]/files/[filename] - Delete a file
 export async function DELETE(

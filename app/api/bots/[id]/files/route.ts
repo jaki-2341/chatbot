@@ -5,7 +5,7 @@ import path from 'path';
 import { getDatabase } from '@/lib/mongodb';
 import { documentToBot, BotDocument } from '@/app/models/Bot';
 
-const STORAGE_DIR = './data';
+const STORAGE_DIR = '/tmp/data';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // POST /api/bots/[id]/files - Upload files for a bot
