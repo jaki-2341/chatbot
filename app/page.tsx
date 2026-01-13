@@ -5,10 +5,12 @@ import Header from './components/header';
 import Dashboard from './components/dashboard';
 import Builder from './components/builder';
 import EmbedModal from './components/embed-modal';
+import TemplateSelectionPanel from './components/template-selection-panel';
 import Login from './components/login';
 import { Bot } from './types/bot';
 import { useBots } from './hooks/use-bots';
 import { useAuth } from './contexts/auth-context';
+import { BotTemplate } from './templates/bot-templates';
 
 type View = 'dashboard' | 'builder';
 
@@ -17,6 +19,7 @@ export default function Home() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [editingBot, setEditingBot] = useState<Bot | undefined>();
   const [embedModalBot, setEmbedModalBot] = useState<Bot | null>(null);
+  const [showTemplatePanel, setShowTemplatePanel] = useState(false);
   const { createBot, updateBot, getBot } = useBots();
 
   const handleNavigateToBuilder = async (bot?: Bot) => {
@@ -25,32 +28,44 @@ export default function Home() {
       setEditingBot(bot);
       setCurrentView('builder');
     } else {
-      // Creating new bot - auto-create it immediately
-      try {
-        const newBot: Bot = {
-          id: `bot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          name: 'New Chatbot',
-          agentName: 'Agent',
-          welcomeMessage: 'Hello! How can I help you?',
-          primaryColor: '#3B82F6',
-          position: 'bottom-right',
-          knowledgeBase: '',
-          status: 'Inactive',
-          widgetIcon: 'message-circle',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
+      // Creating new bot - show template selection panel
+      setShowTemplatePanel(true);
+    }
+  };
 
-        // Create bot in database
-        const savedBot = await createBot(newBot);
-        
-        // Navigate to builder with the newly created bot
-        setEditingBot(savedBot);
-        setCurrentView('builder');
-      } catch (error) {
-        console.error('Error creating new bot:', error);
-        alert('Failed to create new chatbot. Please try again.');
-      }
+  const handleTemplateSelect = async (template: BotTemplate, clientName: string, assistantName: string) => {
+    try {
+      const newBot: Bot = {
+        id: `bot_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: clientName || template.config.name || 'New Chatbot',
+        agentName: assistantName || template.config.agentName || 'Agent',
+        welcomeMessage: template.config.welcomeMessage || 'Hello! How can I help you?',
+        primaryColor: template.config.primaryColor || '#3B82F6',
+        position: template.config.position || 'bottom-right',
+        knowledgeBase: template.config.knowledgeBase || '',
+        status: 'Inactive',
+        widgetIcon: template.config.widgetIcon || 'message-circle',
+        role: template.config.role,
+        inputPlaceholder: template.config.inputPlaceholder,
+        suggestedQuestions: template.config.suggestedQuestions,
+        collectInfoEnabled: template.config.collectInfoEnabled,
+        collectName: template.config.collectName,
+        collectEmail: template.config.collectEmail,
+        collectPhone: template.config.collectPhone,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // Create bot in database
+      const savedBot = await createBot(newBot);
+      
+      // Close panel and navigate to builder
+      setShowTemplatePanel(false);
+      setEditingBot(savedBot);
+      setCurrentView('builder');
+    } catch (error) {
+      console.error('Error creating new bot:', error);
+      alert('Failed to create new chatbot. Please try again.');
     }
   };
 
@@ -146,6 +161,11 @@ export default function Home() {
       {embedModalBot && (
         <EmbedModal bot={embedModalBot} onClose={() => setEmbedModalBot(null)} />
       )}
+      <TemplateSelectionPanel
+        isOpen={showTemplatePanel}
+        onClose={() => setShowTemplatePanel(false)}
+        onSelectTemplate={handleTemplateSelect}
+      />
     </div>
   );
 }

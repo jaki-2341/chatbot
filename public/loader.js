@@ -995,7 +995,7 @@
       button.innerHTML = `<img src="${botData.avatarImage}" alt="${botData.agentName || botData.name || 'Bot'}" />`;
     } else {
       button.classList.remove('has-avatar');
-      button.innerHTML = getIconSVG(botData?.widgetIcon || 'message-circle');
+  button.innerHTML = getIconSVG(botData?.widgetIcon || 'message-circle');
     }
     button.onclick = toggleWidget;
 
@@ -2564,11 +2564,11 @@
         // Show avatar image
         button.classList.add('has-avatar');
         button.innerHTML = `<img src="${botData.avatarImage}" alt="${botData.agentName || botData.name || 'Bot'}" />`;
-      } else {
-        // Use selected widget icon when closed
+    } else {
+      // Use selected widget icon when closed
         button.classList.remove('has-avatar');
-        const iconType = botData?.widgetIcon || 'message-circle';
-        button.innerHTML = getIconSVG(iconType);
+      const iconType = botData?.widgetIcon || 'message-circle';
+      button.innerHTML = getIconSVG(iconType);
       }
     }
   }

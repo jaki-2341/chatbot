@@ -124,7 +124,7 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
               <User className="w-4 h-4 text-slate-500" />
-              Internal Bot Name
+              Client Name
             </label>
             <input
               type="text"
@@ -142,7 +142,7 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
               <UserCircle className="w-4 h-4 text-slate-500" />
-              Display Name
+              Assistant Name
             </label>
             <input
               type="text"
@@ -358,48 +358,48 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
                       <label className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
                         isValidEmail ? 'hover:bg-white' : 'opacity-50 cursor-not-allowed'
                       }`}>
-                        <input
-                          type="checkbox"
-                          checked={collectEmail}
-                          onChange={(e) => onBotChange({ collectEmail: e.target.checked })}
+                  <input
+                    type="checkbox"
+                    checked={collectEmail}
+                    onChange={(e) => onBotChange({ collectEmail: e.target.checked })}
                           disabled={!isValidEmail}
                           className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-slate-700">Email Address</span>
-                          <p className="text-xs text-slate-500">Collect user&apos;s email</p>
-                        </div>
-                      </label>
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-slate-700">Email Address</span>
+                    <p className="text-xs text-slate-500">Collect user&apos;s email</p>
+                  </div>
+                </label>
                       <label className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
                         isValidEmail ? 'hover:bg-white' : 'opacity-50 cursor-not-allowed'
                       }`}>
-                        <input
-                          type="checkbox"
-                          checked={collectName}
-                          onChange={(e) => onBotChange({ collectName: e.target.checked })}
+                  <input
+                    type="checkbox"
+                    checked={collectName}
+                    onChange={(e) => onBotChange({ collectName: e.target.checked })}
                           disabled={!isValidEmail}
                           className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-slate-700">Full Name</span>
-                          <p className="text-xs text-slate-500">Collect user&apos;s full name</p>
-                        </div>
-                      </label>
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-slate-700">Full Name</span>
+                    <p className="text-xs text-slate-500">Collect user&apos;s full name</p>
+                  </div>
+                </label>
                       <label className={`flex items-center gap-3 p-2 rounded-lg transition-colors cursor-pointer group ${
                         isValidEmail ? 'hover:bg-white' : 'opacity-50 cursor-not-allowed'
                       }`}>
-                        <input
-                          type="checkbox"
-                          checked={collectPhone}
-                          onChange={(e) => onBotChange({ collectPhone: e.target.checked })}
+                  <input
+                    type="checkbox"
+                    checked={collectPhone}
+                    onChange={(e) => onBotChange({ collectPhone: e.target.checked })}
                           disabled={!isValidEmail}
                           className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        />
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-slate-700">Phone Number</span>
-                          <p className="text-xs text-slate-500">Collect user&apos;s phone number</p>
-                        </div>
-                      </label>
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-slate-700">Phone Number</span>
+                    <p className="text-xs text-slate-500">Collect user&apos;s phone number</p>
+                  </div>
+                </label>
                     </div>
                   </>
                 )}

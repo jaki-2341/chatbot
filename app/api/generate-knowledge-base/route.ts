@@ -33,40 +33,78 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that generates comprehensive knowledge base content and instructions for chatbots. Create detailed, well-structured content that will serve as the primary instructions and knowledge base for a chatbot. Include business context, FAQs, product/service information, policies, procedures, and helpful responses. You can use markdown formatting for structure, but DO NOT include title headers like '# Customer Service Agent Chatbot Knowledge Base' or welcome sections like '## Welcome to our Customer Service Chatbot!'. Start directly with the actual content, facts, FAQs, and instructions. This content will be used as the main prompt/instruction set for the chatbot to answer user questions.",
+          content: `You are a helpful assistant that generates comprehensive, structured knowledge base content and instructions for chatbots. 
+
+You MUST generate content following this EXACT structure and format:
+
+# [Assistant Type] Prompt
+
+## Identity & Purpose
+Define the assistant's role, primary purpose, and what it's designed to accomplish.
+
+## Voice & Persona
+### Personality
+- List personality traits and characteristics
+- Describe the tone and approach
+
+### Speech Characteristics
+- Describe how the assistant should communicate
+- Include language style, formality level, etc.
+
+## Conversation Flow
+### Introduction
+Provide the opening greeting and how to handle initial interactions.
+
+### [Relevant Flow Sections]
+Break down the conversation flow into logical steps (e.g., Issue Identification, Troubleshooting, Resolution, Closing, etc.)
+
+## Response Guidelines
+- List specific guidelines for how to respond
+- Include response length, question format, confirmation practices
+- Add any communication best practices
+
+## Scenario Handling
+### [Common Scenarios]
+Provide specific guidance for handling different scenarios (e.g., Technical Issues, Frustrated Customers, Complex Issues, Feature Requests, etc.)
+
+## Knowledge Base
+### [Relevant Categories]
+Organize knowledge into categories (e.g., Product Information, Common Solutions, Account Management, Policies, etc.)
+Include specific facts, FAQs, and information the assistant should know.
+
+## Response Refinement
+Provide techniques for explaining concepts, handling step-by-step instructions, and refining responses.
+
+End with a brief reminder statement about the assistant's ultimate goal.
+
+Use markdown formatting with proper heading levels (# for main title, ## for major sections, ### for subsections). Be comprehensive and detailed.`,
         },
         {
           role: "user",
-          content: `Generate comprehensive knowledge base content and instructions for a chatbot based on this request: ${prompt}. Do not include title headers or welcome messages. Start directly with the content, facts, FAQs, and instructions.`,
+          content: `Generate comprehensive knowledge base content and instructions for a chatbot based on this request: ${prompt}. 
+
+Follow the structured format exactly as specified. Include all required sections: Identity & Purpose, Voice & Persona, Conversation Flow, Response Guidelines, Scenario Handling, Knowledge Base, and Response Refinement. Make it detailed and actionable.`,
         },
       ],
-      max_tokens: 1500,
+      max_tokens: 2000,
       temperature: 0.7,
     });
 
     let content = completion.choices[0]?.message?.content?.trim() || 
       "Knowledge base content could not be generated. Please try again.";
     
-    // Remove title headers and welcome messages, but keep markdown formatting
-    const lines = content.split('\n');
-    const cleanedLines = lines
-      .filter((line, index) => {
-        const trimmed = line.trim();
-        // Remove main title headers (first level # with common title patterns)
-        if (trimmed.match(/^#\s+(Customer Service|Knowledge Base|Chatbot|Welcome)/i)) return false;
-        // Remove welcome sections
-        if (trimmed.match(/^##\s+Welcome/i)) return false;
-        // Remove standalone title lines that are just titles (short lines with title patterns)
-        if (trimmed.match(/^(Customer Service Agent Chatbot Knowledge Base|Welcome to our Customer Service Chatbot!?)$/i)) return false;
-        // Remove empty lines at the start
-        if (index === 0 && !trimmed) return false;
-        return true;
-      });
+    // Ensure the content follows the structured format
+    // Check if it starts with a main title (#)
+    if (!content.startsWith('#')) {
+      // If not, try to find the first # heading and use everything from there
+      const firstHeadingIndex = content.indexOf('#');
+      if (firstHeadingIndex !== -1) {
+        content = content.substring(firstHeadingIndex);
+      }
+    }
     
-    content = cleanedLines.join('\n').trim();
-
-    // Remove leading empty lines
-    content = content.replace(/^\n+/, '');
+    // Clean up any leading/trailing whitespace
+    content = content.trim();
 
     // Final check - if still empty, return error
     if (!content || content.length < 10) {
