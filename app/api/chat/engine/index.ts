@@ -287,6 +287,7 @@ export async function createChatEngine(
   botId?: string, 
   knowledgeBase?: string, 
   agentName?: string,
+  role?: string,
   collectInfoEnabled?: boolean,
   collectName?: boolean,
   collectEmail?: boolean,
@@ -296,60 +297,50 @@ export async function createChatEngine(
 ) {
   const hasKnowledgeBase = knowledgeBase && knowledgeBase.trim();
   
-  // Build base system prompt
+  // Build base system prompt with name, role, and instructions
   let baseSystemPrompt = '';
-  if (agentName) {
-    baseSystemPrompt = `You are ${agentName}, a helpful customer support agent.`;
+  
+  // Start with identity: name and role
+  if (agentName && role) {
+    baseSystemPrompt = `You are ${agentName}, ${role}. Your name is ${agentName}. Only mention your name when users explicitly ask about it (e.g., "What's your name?" or "Who are you?"). Do NOT introduce yourself or mention your name in every response - only answer the user's question directly.`;
+  } else if (agentName) {
+    baseSystemPrompt = `You are ${agentName}, a helpful customer support agent. Your name is ${agentName}. Only mention your name when users explicitly ask about it (e.g., "What's your name?" or "Who are you?"). Do NOT introduce yourself or mention your name in every response - only answer the user's question directly.`;
+  } else if (role) {
+    baseSystemPrompt = `You are ${role}.`;
   } else {
     baseSystemPrompt = `You are a helpful customer support agent.`;
   }
   
+  // Add prompt instructions (knowledgeBase)
   if (hasKnowledgeBase) {
-    baseSystemPrompt += ` ${knowledgeBase}`;
+    baseSystemPrompt += `\n\nYour instructions and guidelines:\n${knowledgeBase}`;
   }
   
-  // Note: Information collection is now handled separately in the UI
-  // The AI should respond normally to the first message without asking for information
+  // Core RAG-first approach: Always use context when available
+  baseSystemPrompt += `\n\nIMPORTANT - USE RAG CONTEXT: You will receive context from the knowledge base (retrieved documents and resources). This context is your primary source of information. 
+
+- ALWAYS prioritize and use the provided context to answer questions
+- When context is available, base your answer on that information
+- If the context contains relevant information, use it to provide a comprehensive, helpful answer
+- Only ask for clarification if the question is truly unclear AND you have no relevant context
+- Be proactive: if context has information related to the question (even if the question is general), provide that information
+- Synthesize information from the context to give complete, accurate answers
+- If multiple relevant pieces of information exist in the context, include them in your answer
+
+The context you receive is authoritative - trust it and use it to provide accurate, detailed responses.`;
   
   // Add instruction for handling user information when it's provided
   if (collectInfoEnabled) {
-    baseSystemPrompt += `\n\nCRITICAL - USER INFORMATION HANDLING: When you receive a message that says "I've provided my information:" followed by Name, Email, or Phone, this means the user has completed a form. DO NOT repeat back their information. DO NOT say "Thank you for providing your name, [name]" or list what they provided. 
-
-Respond warmly and naturally with ONE brief, friendly sentence that acknowledges them and invites them to continue. Make it feel personal and welcoming. Examples of good responses:
-- "Wonderful! I'm here to help. What can I do for you today?"
-- "Perfect! I'm ready to assist you. How can I help?"
-- "Excellent! I'd be happy to help. What would you like to know?"
-- "Thank you! I'm here for you. What can I assist you with today?"
-- "Great to have that information! How can I be of service?"
-
-Keep it warm, friendly, and conversational. Immediately transition to asking how you can help. Never mention their name, email, or phone number in your response.`;
+    baseSystemPrompt += `\n\nWhen you receive a message that says "I've provided my information:" followed by Name, Email, or Phone, this means the user has completed a form. Respond warmly with a brief, friendly acknowledgment and invite them to continue. Do not repeat back their information. Examples: "Wonderful! I'm here to help. What can I do for you today?" or "Perfect! I'm ready to assist you. How can I help?"`;
   }
   
-  // Add contextual response instructions based on conversation state
-  if (isFirstUserMessage && !hasRequestedInfo) {
-    // First message and info not requested yet: Answer directly without generic follow-ups
-    baseSystemPrompt += `\n\nCRITICAL - FIRST MESSAGE RESPONSE: This is the user's first message. Provide a direct, helpful answer to their question or request. DO NOT add generic follow-up questions like "How can I help you?" or "What can I do for you?" at the end. Focus solely on answering their question completely and accurately.`;
-  } else if (hasRequestedInfo) {
-    // Info has been requested (localStorage flag is true): Include a follow-up question
-    baseSystemPrompt += `\n\nCRITICAL - CONVERSATION CONTINUITY: After providing your answer, include a contextual follow-up question to keep the conversation engaging. Examples:
-- If they asked about a specific topic: "Do you have any more questions about [topic]?"
-- If they asked about services: "Would you like to know more about any of our services?"
-- If they asked a general question: "Is there anything else I can help you with?"
-- If continuing a previous topic: "Would you like me to elaborate on [previous topic]?"
-
-Keep the follow-up relevant to the conversation context. Make it feel natural and conversational.`;
-  } else {
-    // Subsequent messages (not first, and info not requested): Maintain context and ask topic-specific follow-ups
-    baseSystemPrompt += `\n\nCRITICAL - CONVERSATION CONTINUITY: Maintain context from previous messages. When the user asks a new question or continues the conversation:
-1. Answer their question directly and completely
-2. Reference previous conversation topics when relevant
-3. Ask a topic-specific follow-up question related to what was just discussed, such as:
-   - "Do you have any more questions about [current topic]?"
-   - "Would you like me to explain more about [related aspect]?"
-   - "Is there anything specific about [topic] you'd like to know?"
-
-Avoid generic questions like "How can I help you?" Instead, ask questions that show you're following the conversation and understand the context.`;
-  }
+  // Natural conversation flow based on context
+  baseSystemPrompt += `\n\nCONVERSATION STYLE: 
+- Answer questions directly and completely using the context provided
+- Be natural and conversational
+- If appropriate, you can ask relevant follow-up questions to help the user, but prioritize answering their current question first
+- Maintain context from previous messages in the conversation
+- Keep responses helpful, clear, and focused on being useful to the user`;
   
   // Check if documents exist for this bot
   const fileDocuments = await loadDocumentsFromDirectory(botId);
@@ -399,7 +390,11 @@ Avoid generic questions like "How can I help you?" Instead, ask questions that s
       chatModel: llm,
       retriever,
       contextSystemPrompt: ({ context }) => {
-        return `${baseSystemPrompt}\n\nContext from knowledge base:\n${context || 'No additional context available.'}`;
+        if (context && context.trim()) {
+          return `${baseSystemPrompt}\n\nRELEVANT CONTEXT FROM KNOWLEDGE BASE (Use this information to answer the user's question):\n${context}\n\nUse the context above to provide a comprehensive, accurate answer. The context contains relevant information that should be used to answer the user's question.`;
+        } else {
+          return `${baseSystemPrompt}\n\nNo additional context available from knowledge base. Answer based on your general knowledge and the instructions provided above.`;
+        }
       },
     });
   }
@@ -409,8 +404,10 @@ Avoid generic questions like "How can I help you?" Instead, ask questions that s
   let index: VectorStoreIndex | null = null;
   try {
     index = await getDataSource(llm, botId);
+    console.log(`[RAG] Successfully loaded existing index for botId: ${botId}`);
   } catch (error) {
     // No existing index, will create new one
+    console.log(`[RAG] No existing index found for botId: ${botId}, will create new one. Error: ${(error as Error).message}`);
     index = null;
   }
 
@@ -422,8 +419,10 @@ Avoid generic questions like "How can I help you?" Instead, ask questions that s
     // Check for new file documents and add them incrementally
     const newFileDocuments = await filterNewDocuments(fileDocuments, botId);
     if (newFileDocuments.length > 0) {
-      console.log(`Adding ${newFileDocuments.length} new document(s) to existing index incrementally`);
+      console.log(`[RAG] Adding ${newFileDocuments.length} new document(s) to existing index incrementally for botId: ${botId}`);
       await addDocumentsToIndex(index, newFileDocuments, llm);
+    } else {
+      console.log(`[RAG] No new documents to add for botId: ${botId}, using existing index`);
     }
     
   } else {
@@ -448,10 +447,12 @@ Avoid generic questions like "How can I help you?" Instead, ask questions that s
     });
 
     // Create index with PDF files only (knowledge base is NOT indexed)
+    console.log(`[RAG] Creating new index with ${fileDocuments.length} document(s) for botId: ${botId}`);
     index = await VectorStoreIndex.fromDocuments(fileDocuments, { 
       serviceContext,
       storageContext, // This makes it persist!
     });
+    console.log(`[RAG] Successfully created new index for botId: ${botId}`);
   }
   
   // Ensure index is defined
@@ -461,12 +462,44 @@ Avoid generic questions like "How can I help you?" Instead, ask questions that s
   
   const retriever = index.asRetriever();
   retriever.similarityTopK = 5;
+  
+  console.log(`[RAG] Created retriever with similarityTopK=5 for botId: ${botId}`);
 
   return new ContextChatEngine({
     chatModel: llm,
     retriever,
     contextSystemPrompt: ({ context }) => {
-      return `${baseSystemPrompt}\n\nContext from knowledge base:\n${context || 'No additional context available.'}`;
+        if (context && context.trim()) {
+          console.log(`[RAG] Retrieved context for botId ${botId}, context length: ${context.length} characters`);
+          console.log(`[RAG] Context preview: "${context.substring(0, 200)}..."`);
+          
+          // Stronger prompt to ensure context is used
+          return `${baseSystemPrompt}
+
+═══════════════════════════════════════════════════════════════
+CRITICAL: YOU MUST USE THE CONTEXT BELOW TO ANSWER THE QUESTION
+═══════════════════════════════════════════════════════════════
+
+The following context was retrieved from the knowledge base and uploaded documents. This context contains the EXACT information needed to answer the user's question. You MUST base your answer primarily on this context.
+
+RETRIEVED CONTEXT FROM KNOWLEDGE BASE:
+${context}
+
+INSTRUCTIONS FOR USING THIS CONTEXT:
+1. Read the context carefully - it contains relevant information about the user's question
+2. Extract specific details, facts, and information from the context
+3. Use the context as your PRIMARY source of information
+4. If the context mentions specific services, products, prices, features, or details - include them in your answer
+5. Do NOT give generic answers when the context has specific information
+6. Synthesize the information from the context to provide a complete, accurate answer
+7. If the context is long, extract the most relevant parts that directly answer the question
+8. Quote or reference specific details from the context when relevant
+
+Your answer should be based on the context above. If the context contains the answer, use it. Do not provide generic responses when specific information is available in the context.`;
+        } else {
+          console.log(`[RAG] No context retrieved for botId ${botId} - this may indicate RAG is not working properly`);
+          return `${baseSystemPrompt}\n\nNo additional context available from knowledge base. Answer based on your general knowledge and the instructions provided above.`;
+        }
     },
   });
 }

@@ -8,8 +8,10 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
-const STORAGE_DIR = '/tmp/data';
-const STORAGE_CACHE_DIR = '/tmp/cache';
+const STORAGE_DIR = './data';
+const STORAGE_CACHE_DIR = './cache';
+// const STORAGE_DIR = '/tmp/data';
+// const STORAGE_CACHE_DIR = '/tmp/cache';
 
 // GET - Get single bot by ID
 export async function GET(

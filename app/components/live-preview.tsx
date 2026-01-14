@@ -138,6 +138,7 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
       botId: bot.id,
       knowledgeBase: bot.knowledgeBase || '',
       agentName: bot.agentName,
+      role: bot.role,
       collectInfoEnabled: bot.collectInfoEnabled || false,
       collectName: bot.collectName || false,
       collectEmail: bot.collectEmail || false,
@@ -519,9 +520,50 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  // Track previous message count to detect new messages vs content updates
+  const prevMessageCountRef = useRef(messages.length);
+  const prevLastMessageContentRef = useRef(
+    messages.length > 0 ? messages[messages.length - 1].content : ''
+  );
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const currentMessageCount = messages.length;
+    const currentLastMessageContent = 
+      messages.length > 0 ? messages[messages.length - 1].content : '';
+    
+    // Check if it's a new message or just content update
+    const isNewMessage = currentMessageCount > prevMessageCountRef.current;
+    const isContentUpdate = 
+      currentMessageCount === prevMessageCountRef.current &&
+      currentLastMessageContent !== prevLastMessageContentRef.current &&
+      isLoading; // Only during streaming
+    
+    // Only scroll if it's a new message or during streaming (content update)
+    if (isNewMessage || isContentUpdate) {
+      // Check if user is near the bottom (within 100px) before auto-scrolling
+      const container = messagesContainerRef.current;
+      if (container) {
+        const isNearBottom = 
+          container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+        
+        // Only auto-scroll if user is near bottom or it's a new message
+        if (isNearBottom || isNewMessage) {
+          // Use instant scroll during streaming to avoid glitch
+          // Use smooth scroll when not loading (new message completed)
+          const scrollBehavior = isLoading ? 'auto' : 'smooth';
+          messagesEndRef.current?.scrollIntoView({ behavior: scrollBehavior });
+        }
+      } else {
+        // Fallback if container ref not set yet
+        messagesEndRef.current?.scrollIntoView({ behavior: isLoading ? 'auto' : 'smooth' });
+      }
+    }
+    
+    // Update refs
+    prevMessageCountRef.current = currentMessageCount;
+    prevLastMessageContentRef.current = currentLastMessageContent;
+  }, [messages, isLoading]);
 
   const [previewUrl, setPreviewUrl] = useState(bot.previewUrl || '');
   const [showIframe, setShowIframe] = useState(!!bot.previewUrl);
@@ -964,7 +1006,7 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
           </div>
 
               {/* Messages Area */}
-          <div className="flex-1 bg-gray-50 p-4 overflow-y-auto space-y-4 scrollbar-hide">
+          <div ref={messagesContainerRef} className="flex-1 bg-gray-50 p-4 overflow-y-auto space-y-4 scrollbar-hide">
             {messages
               .filter((msg) => {
                 // Hide empty welcome message when input is not focused (static welcome is shown instead)
@@ -1014,46 +1056,53 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
                       ? 'text-white rounded-tl-xl rounded-tr-xl rounded-bl-xl'
                       : 'bg-white text-gray-700 border border-gray-100 rounded-tr-xl rounded-bl-xl rounded-br-xl'
                   }`}
-                  style={msg.role === 'user' ? { backgroundColor: bot.primaryColor || '#3B82F6' } : {}}
+                  style={{
+                    ...(msg.role === 'user' ? { backgroundColor: bot.primaryColor || '#3B82F6' } : {}),
+                    textDecoration: 'none',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                  }}
                 >
                   {msg.role === 'assistant' ? (
-                    <div className="markdown-content">
+                    <div className="markdown-content" style={{ wordBreak: 'break-word', overflowWrap: 'break-word', textDecoration: 'none' }}>
                       {msg.id === 'welcome' && isStreamingWelcome ? (
-                        <p className="mb-0 leading-relaxed">{streamingWelcomeContent}</p>
+                        <p className="mb-0 leading-relaxed" style={{ textDecoration: 'none' }}>{streamingWelcomeContent}</p>
                       ) : (
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
-                            ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1 ml-2">{children}</ul>,
-                            ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1 ml-2">{children}</ol>,
-                            li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                            p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed" style={{ textDecoration: 'none', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc list-outside mb-2 space-y-1 ml-4 pl-2" style={{ textDecoration: 'none' }}>{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal list-outside mb-2 space-y-1 ml-4 pl-2" style={{ textDecoration: 'none' }}>{children}</ol>,
+                            li: ({ children }) => <li className="leading-relaxed pl-1" style={{ textDecoration: 'none', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{children}</li>,
                             code: ({ node, inline, className, children, ...props }: any) => {
                               return !inline ? (
-                                <code className="block bg-gray-900 text-gray-100 p-2 rounded text-xs overflow-x-auto mb-2 font-mono" {...props}>
+                                <code className="block bg-gray-900 text-gray-100 p-2 rounded text-xs overflow-x-auto mb-2 font-mono" style={{ textDecoration: 'none' }} {...props}>
                                 {String(children).replace(/\n$/, '')}
                               </code>
                             ) : (
-                              <code className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                              <code className="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded text-xs font-mono" style={{ textDecoration: 'none' }} {...props}>
                                 {children}
                               </code>
                             );
                           },
-                          pre: ({ children }) => <pre className="bg-gray-900 text-gray-100 p-2 rounded text-xs overflow-x-auto mb-2 font-mono">{children}</pre>,
-                          h1: ({ children }) => <h1 className="text-base font-bold mb-2 mt-0">{children}</h1>,
-                          h2: ({ children }) => <h2 className="text-sm font-bold mb-2 mt-0">{children}</h2>,
-                          h3: ({ children }) => <h3 className="text-sm font-semibold mb-1 mt-0">{children}</h3>,
-                          strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                          em: ({ children }) => <em className="italic">{children}</em>,
-                          a: ({ children, href }: any) => <a href={href} className="text-blue-600 underline hover:text-blue-700" target="_blank" rel="noopener noreferrer">{children}</a>,
-                          blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-4 italic my-2 text-gray-600">{children}</blockquote>,
-                          hr: () => <hr className="my-3 border-gray-200" />,
-                          table: ({ children }) => <div className="overflow-x-auto my-2"><table className="min-w-full border border-gray-200">{children}</table></div>,
-                          thead: ({ children }) => <thead className="bg-gray-50">{children}</thead>,
-                          tbody: ({ children }) => <tbody>{children}</tbody>,
-                          tr: ({ children }) => <tr className="border-b border-gray-200">{children}</tr>,
-                          th: ({ children }) => <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">{children}</th>,
-                          td: ({ children }) => <td className="px-3 py-2 text-xs">{children}</td>,
+                          pre: ({ children }) => <pre className="bg-gray-900 text-gray-100 p-2 rounded text-xs overflow-x-auto mb-2 font-mono" style={{ textDecoration: 'none' }}>{children}</pre>,
+                          h1: ({ children }) => <h1 className="text-base font-bold mb-2 mt-0" style={{ textDecoration: 'none' }}>{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-sm font-bold mb-2 mt-0" style={{ textDecoration: 'none' }}>{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm font-semibold mb-1 mt-0" style={{ textDecoration: 'none' }}>{children}</h3>,
+                          strong: ({ children }) => <strong className="font-semibold text-gray-900" style={{ textDecoration: 'none' }}>{children}</strong>,
+                          em: ({ children }) => <em className="italic" style={{ textDecoration: 'none' }}>{children}</em>,
+                          a: ({ children, href }: any) => <a href={href} className="text-blue-600 hover:text-blue-700" style={{ textDecoration: 'underline', wordBreak: 'break-word', overflowWrap: 'break-word' }} target="_blank" rel="noopener noreferrer">{children}</a>,
+                          blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-4 italic my-2 text-gray-600" style={{ textDecoration: 'none' }}>{children}</blockquote>,
+                          hr: () => <hr className="my-3 border-gray-200" style={{ textDecoration: 'none' }} />,
+                          table: ({ children }) => <div className="overflow-x-auto my-2" style={{ textDecoration: 'none' }}><table className="min-w-full border border-gray-200">{children}</table></div>,
+                          thead: ({ children }) => <thead className="bg-gray-50" style={{ textDecoration: 'none' }}>{children}</thead>,
+                          tbody: ({ children }) => <tbody style={{ textDecoration: 'none' }}>{children}</tbody>,
+                          tr: ({ children }) => <tr className="border-b border-gray-200" style={{ textDecoration: 'none' }}>{children}</tr>,
+                          th: ({ children }) => <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700" style={{ textDecoration: 'none' }}>{children}</th>,
+                          td: ({ children }) => <td className="px-3 py-2 text-xs" style={{ textDecoration: 'none', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{children}</td>,
                         }}
                       >
                         {msg.content}
@@ -1076,7 +1125,7 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
                       )}
                     </div>
                   ) : (
-                    <span className="whitespace-pre-wrap">{msg.content}</span>
+                    <span className="whitespace-pre-wrap" style={{ textDecoration: 'none', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{msg.content}</span>
                   )}
                 </div>
               </div>

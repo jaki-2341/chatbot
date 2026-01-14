@@ -39,21 +39,197 @@
     return botData?.welcomeMessage || 'Hello! How can I help you today?';
   }
 
-  // Simple markdown to HTML converter (basic support)
+  // Robust markdown to HTML converter - handles bold, lists, and proper formatting
   function markdownToHtml(text) {
     if (!text) return '';
     
-    return text
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, '<code class="inline-code">$1</code>')
-      .replace(/```([\s\S]+?)```/g, '<pre><code>$1</code></pre>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      .replace(/^\* (.+)$/gm, '<li>$1</li>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/\n/g, '<br>');
+    // Handle code blocks first (before other processing) - preserve them
+    const codeBlocks = [];
+    text = text.replace(/```([\s\S]+?)```/g, function(match, code) {
+      const id = 'CODE_BLOCK_' + codeBlocks.length;
+      codeBlocks.push('<pre class="bg-gray-900 text-gray-100 p-2 rounded text-xs overflow-x-auto mb-2 font-mono" style="text-decoration: none;"><code>' + escapeHtml(code) + '</code></pre>');
+      return id;
+    });
+    
+    // Handle inline code (but not inside code blocks)
+    text = text.replace(/`([^`\n]+)`/g, '<code class="bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded text-xs font-mono" style="text-decoration: none;">$1</code>');
+    
+    // First, normalize the text - handle cases where numbered lists might be inline
+    // Convert patterns like "text1. Item" or "text 1. Item" to proper newlines
+    text = text.replace(/([^\n])(\d+)\.\s+/g, '$1\n$2. ');
+    // Also handle cases like "text- Item" to be on new line (but not if it's already a list)
+    text = text.replace(/([^\n])([\-\+])\s+/g, '$1\n$2 ');
+    
+    // Split into lines
+    const lines = text.split('\n');
+    const output = [];
+    let inList = false;
+    let listType = null;
+    let listCounter = 0; // Track numbered list counter
+    let currentParagraph = [];
+    let inNestedList = false;
+    let nestedListType = null;
+    
+    function flushParagraph() {
+      if (currentParagraph.length > 0) {
+        const paraText = currentParagraph.join(' ').trim();
+        if (paraText) {
+          output.push('<p class="mb-2 last:mb-0 leading-relaxed" style="text-decoration: none; word-break: break-word; overflow-wrap: break-word;">' + processInlineFormatting(paraText) + '</p>');
+        }
+        currentParagraph = [];
+      }
+    }
+    
+    function flushList() {
+      if (inNestedList) {
+        output.push('</' + nestedListType + '>');
+        inNestedList = false;
+        nestedListType = null;
+      }
+      if (inList) {
+        output.push('</' + listType + '>');
+        inList = false;
+        listType = null;
+        listCounter = 0;
+      }
+    }
+    
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
+      const trimmed = line.trim();
+      
+      // Empty line - flush current paragraph/list
+      if (!trimmed) {
+        flushParagraph();
+        flushList();
+        continue;
+      }
+      
+      // Headers
+      if (/^###\s+/.test(trimmed)) {
+        flushParagraph();
+        flushList();
+        output.push('<h3 class="text-sm font-semibold mb-1 mt-0" style="text-decoration: none;">' + processInlineFormatting(trimmed.replace(/^###\s+/, '')) + '</h3>');
+        continue;
+      } else if (/^##\s+/.test(trimmed)) {
+        flushParagraph();
+        flushList();
+        output.push('<h2 class="text-sm font-bold mb-2 mt-0" style="text-decoration: none;">' + processInlineFormatting(trimmed.replace(/^##\s+/, '')) + '</h2>');
+        continue;
+      } else if (/^#\s+/.test(trimmed)) {
+        flushParagraph();
+        flushList();
+        output.push('<h1 class="text-base font-bold mb-2 mt-0" style="text-decoration: none;">' + processInlineFormatting(trimmed.replace(/^#\s+/, '')) + '</h1>');
+        continue;
+      }
+      
+      // Numbered lists - check for number followed by period and space at start of line
+      const numberedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+      if (numberedMatch) {
+        flushParagraph();
+        if (inNestedList) {
+          output.push('</' + nestedListType + '>');
+          inNestedList = false;
+          nestedListType = null;
+        }
+        if (!inList || listType !== 'ol') {
+          flushList();
+          output.push('<ol class="list-decimal list-inside mb-2 space-y-1 ml-2" style="text-decoration: none;">');
+          inList = true;
+          listType = 'ol';
+          listCounter = parseInt(numberedMatch[1]);
+        }
+        const content = numberedMatch[2];
+        output.push('<li class="leading-relaxed" style="text-decoration: none; word-break: break-word; overflow-wrap: break-word;">' + processInlineFormatting(content) + '</li>');
+        continue;
+      }
+      
+      // Bullet lists with - or + (but not * which is for bold)
+      if (/^[\-\+]\s+/.test(trimmed)) {
+        // Check if we're inside a numbered list item - if so, create nested list
+        if (inList && listType === 'ol') {
+          if (!inNestedList || nestedListType !== 'ul') {
+            if (inNestedList) {
+              output.push('</' + nestedListType + '>');
+            }
+            output.push('<ul class="list-disc list-inside mb-2 space-y-1 ml-4" style="text-decoration: none;">');
+            inNestedList = true;
+            nestedListType = 'ul';
+          }
+          const content = trimmed.replace(/^[\-\+]\s+/, '');
+          output.push('<li class="leading-relaxed" style="text-decoration: none; word-break: break-word; overflow-wrap: break-word;">' + processInlineFormatting(content) + '</li>');
+        } else {
+          // Top-level bullet list
+          flushParagraph();
+          if (inNestedList) {
+            output.push('</' + nestedListType + '>');
+            inNestedList = false;
+            nestedListType = null;
+          }
+          if (!inList || listType !== 'ul') {
+            flushList();
+            output.push('<ul class="list-disc list-inside mb-2 space-y-1 ml-2" style="text-decoration: none;">');
+            inList = true;
+            listType = 'ul';
+          }
+          const content = trimmed.replace(/^[\-\+]\s+/, '');
+          output.push('<li class="leading-relaxed" style="text-decoration: none; word-break: break-word; overflow-wrap: break-word;">' + processInlineFormatting(content) + '</li>');
+        }
+        continue;
+      }
+      
+      // Lines that start with * followed by non-space - this is likely bold text, not a list
+      // Pattern: *Text (no space after *) means bold, * Text (space after *) means list
+      if (/^\*\S/.test(trimmed)) {
+        // This is bold text at start of line, treat as paragraph
+        flushList();
+        currentParagraph.push(trimmed);
+        continue;
+      }
+      
+      // Regular paragraph line
+      flushList();
+      currentParagraph.push(trimmed);
+    }
+    
+    // Flush remaining paragraph/list
+    flushParagraph();
+    flushList();
+    
+    // Restore code blocks
+    let result = output.join('');
+    codeBlocks.forEach((codeBlock, index) => {
+      result = result.replace('CODE_BLOCK_' + index, codeBlock);
+    });
+    
+    return result;
+  }
+  
+  // Helper function to escape HTML
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  
+  // Helper function to process inline formatting (bold, italic, links)
+  function processInlineFormatting(text) {
+    // Handle bold - both **text** and *text* at start of line or standalone
+    // First handle **text** (double asterisk bold)
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-gray-900" style="text-decoration: none;">$1</strong>');
+    
+    // Handle single asterisk bold - *Text (at start) or *text* (inline)
+    // Pattern: *Text: or *Text at start, or *text* in middle
+    text = text.replace(/^\*([^*\n:]+?)(:?)$/gm, '<strong class="font-semibold text-gray-900" style="text-decoration: none;">$1</strong>$2');
+    // Also handle inline *text* (but not if it's part of **text**)
+    text = text.replace(/(?<!\*)\*([^*\n\s]+[^*\n]*?)\*(?!\*)/g, '<strong class="font-semibold text-gray-900" style="text-decoration: none;">$1</strong>');
+    
+    // Handle italic - use _text_ format (single underscore)
+    text = text.replace(/_([^_\n]+?)_/g, '<em class="italic" style="text-decoration: none;">$1</em>');
+    
+    // Handle links
+    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-700" style="text-decoration: underline; word-break: break-word; overflow-wrap: break-word;" target="_blank" rel="noopener noreferrer">$1</a>');
+    return text;
   }
 
   // Fetch bot data
@@ -373,36 +549,35 @@
       .chatbot-widget-message-content .markdown-content {
         word-wrap: break-word;
         overflow-wrap: break-word;
-      }
-      .chatbot-widget-message-content p {
-        margin: 0 0 8px 0;
-        line-height: 1.6;
-      }
-      .chatbot-widget-message-content p:last-child {
-        margin-bottom: 0;
+        text-decoration: none;
       }
       .chatbot-widget-message-content .markdown-content p {
-        margin-bottom: 8px;
+        margin: 0 0 12px 0;
         line-height: 1.6;
+        text-decoration: none;
       }
       .chatbot-widget-message-content .markdown-content p:last-child {
         margin-bottom: 0;
       }
+      .chatbot-widget-message-content .markdown-content ul,
+      .chatbot-widget-message-content .markdown-content ol {
+        margin: 12px 0;
+        padding-left: 24px;
+        list-style-position: outside;
+      }
       .chatbot-widget-message-content .markdown-content ul {
         list-style-type: disc;
-        list-style-position: inside;
-        margin: 8px 0;
-        padding-left: 8px;
       }
       .chatbot-widget-message-content .markdown-content ol {
         list-style-type: decimal;
-        list-style-position: inside;
-        margin: 8px 0;
-        padding-left: 8px;
       }
       .chatbot-widget-message-content .markdown-content li {
-        margin: 4px 0;
+        margin: 6px 0;
         line-height: 1.6;
+        padding-left: 4px;
+      }
+      .chatbot-widget-message-content .markdown-content li p {
+        margin: 0;
       }
       .chatbot-widget-message-content h1,
       .chatbot-widget-message-content h2,
@@ -1698,12 +1873,27 @@
     showLoading();
 
     try {
-      // Prepare messages for API (filter out hidden messages)
+      // Prepare messages for API - ensure exact format matching live-preview.tsx
+      // Filter and format messages exactly as the API expects
       const apiMessages = messages
-        .filter(msg => !msg.id || !msg.id.startsWith('hidden-info-'))
+        .filter(msg => {
+          // Filter out hidden messages
+          if (msg.id && typeof msg.id === 'string' && msg.id.startsWith('hidden-info-')) {
+            return false;
+          }
+          // Filter out empty messages
+          if (!msg.content || typeof msg.content !== 'string' || msg.content.trim() === '') {
+            return false;
+          }
+          // Filter out info collection bubbles
+          if (msg.id && typeof msg.id === 'string' && msg.id.startsWith('info-collection-')) {
+            return false;
+          }
+          return msg && msg.role && (msg.role === 'user' || msg.role === 'assistant');
+        })
         .map(msg => ({
           role: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content
+          content: String(msg.content).trim()
         }));
 
       // Check localStorage for info request status
@@ -1711,6 +1901,13 @@
         const storageKey = 'chatbot_' + botData.id + '_info_requested';
         hasRequestedInfo = localStorage.getItem(storageKey) === 'true';
       }
+      
+      // Log request for debugging
+      console.log('[Loader.js] Sending request:', {
+        botId: botData.id,
+        messagesCount: apiMessages.length,
+        lastMessage: apiMessages[apiMessages.length - 1]?.content?.substring(0, 50)
+      });
       
       const response = await fetch(`${apiBaseUrl}/api/chat`, {
         method: 'POST',
@@ -1722,6 +1919,7 @@
           botId: botData.id,
           knowledgeBase: botData.knowledgeBase || '',
           agentName: botData.agentName,
+          role: botData.role,
           collectInfoEnabled: botData.collectInfoEnabled || false,
           collectName: botData.collectName || false,
           collectEmail: botData.collectEmail || false,
@@ -1737,13 +1935,96 @@
       // Handle streaming response
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = '';
-      let buffer = '';
 
-      // Add assistant message container
+      // Get messages container but don't create message div yet
       const messagesContainer = document.getElementById('chatbot-widget-messages');
+      // Keep loading indicator visible while reading stream
+
+      // Process stream chunks - improved to match useChat behavior exactly
+      // Collect all text first, then stream it for UI effect
+      let fullText = '';
+      let buffer = '';
+      let assistantMessage = '';
+          
+      // Read the entire stream first to ensure we get the complete response
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+
+        // Process complete lines
+        while (true) {
+          const newlineIndex = buffer.indexOf('\n');
+          if (newlineIndex === -1) break;
+
+          const line = buffer.substring(0, newlineIndex);
+          buffer = buffer.substring(newlineIndex + 1);
+
+          if (!line.trim()) continue;
+
+          // Vercel AI SDK format: "0:text" where text is the content
+          if (line.startsWith('0:')) {
+            const text = line.substring(2);
+            if (text) {
+              fullText += text;
+            }
+          } else if (line.startsWith('data:')) {
+            // Handle Server-Sent Events format
+            const text = line.substring(5).trim();
+            if (text && text !== '[DONE]') {
+              try {
+                const parsed = JSON.parse(text);
+                if (parsed && parsed.content) {
+                  fullText += parsed.content;
+                } else if (typeof parsed === 'string') {
+                  fullText += parsed;
+                }
+              } catch (e) {
+                fullText += text;
+              }
+            }
+          } else if (!line.startsWith('event:') && !line.startsWith('id:') && !line.startsWith(':')) {
+            // Handle plain text (fallback)
+            fullText += line;
+          }
+        }
+      }
+
+      // Process any remaining buffer
+      if (buffer.trim()) {
+        if (buffer.startsWith('0:')) {
+          fullText += buffer.substring(2);
+        } else if (buffer.startsWith('data:')) {
+          const text = buffer.substring(5).trim();
+          if (text && text !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(text);
+              if (parsed && parsed.content) {
+                fullText += parsed.content;
+              } else if (typeof parsed === 'string') {
+                fullText += parsed;
+              }
+            } catch (e) {
+              fullText += text;
+            }
+          }
+        } else if (!buffer.startsWith('event:') && !buffer.startsWith('id:') && !buffer.startsWith(':')) {
+          fullText += buffer;
+        }
+      }
+
+      // Remove loading indicator now that we have content ready
       removeLoading();
-      
+
+      // Only create message div after we have content to display
+      if (!fullText.trim()) {
+        messages.push({ role: 'assistant', content: '' });
+        return;
+      }
+
+      // Now create the message div and start streaming
       const messageDiv = document.createElement('div');
       messageDiv.className = 'chatbot-widget-message assistant';
       
@@ -1771,97 +2052,33 @@
       messageDiv.appendChild(contentDiv);
       messagesContainer.appendChild(messageDiv);
 
-      // Process stream chunks - match useChat behavior from ai/react
-      // Queue for character-by-character streaming effect
-      let textQueue = '';
-      let isProcessingQueue = false;
-
-      const processQueue = async () => {
-        if (isProcessingQueue || textQueue.length === 0) return;
-        isProcessingQueue = true;
-
-        while (textQueue.length > 0) {
-          // Take characters from queue (process in small chunks for smooth effect)
-          const chunkSize = Math.min(3, textQueue.length); // Process 3 chars at a time
-          const chunk = textQueue.substring(0, chunkSize);
-          textQueue = textQueue.substring(chunkSize);
-          
-          assistantMessage += chunk;
-          
-          // Update UI immediately
-          const markdownWrapper = contentDiv.querySelector('.markdown-content');
+      // Now stream the complete text for UI effect - faster streaming
+      assistantMessage = fullText;
+      
+      // Stream in chunks for faster display while maintaining smooth effect
+      let charIndex = 0;
+      const chunkSize = Math.max(5, Math.floor(fullText.length / 50)); // Adaptive chunk size
+      const streamText = () => {
+        if (charIndex < fullText.length) {
+          const nextIndex = Math.min(charIndex + chunkSize, fullText.length);
+          const currentText = fullText.substring(0, nextIndex);
           if (markdownWrapper) {
-            markdownWrapper.innerHTML = markdownToHtml(assistantMessage);
-          } else {
-            contentDiv.innerHTML = '<div class="markdown-content">' + markdownToHtml(assistantMessage) + '</div>';
+            markdownWrapper.innerHTML = markdownToHtml(currentText);
           }
           messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-          // Small delay for streaming effect (adjust speed here)
-          if (textQueue.length > 0) {
-            await new Promise(resolve => setTimeout(resolve, 20)); // 20ms = ~50 chars/sec
+          charIndex = nextIndex;
+          setTimeout(streamText, 10); // Faster: 10ms delay for smooth but quick streaming
+        } else {
+          // Streaming complete - ensure final markdown is applied
+          if (markdownWrapper) {
+            markdownWrapper.innerHTML = markdownToHtml(fullText);
           }
+          messages.push({ role: 'assistant', content: fullText });
         }
-
-        isProcessingQueue = false;
       };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Decode the chunk immediately
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
-
-        // Process all complete lines immediately and add to queue
-        while (true) {
-          const newlineIndex = buffer.indexOf('\n');
-          if (newlineIndex === -1) break; // No complete line yet
-
-          const line = buffer.substring(0, newlineIndex);
-          buffer = buffer.substring(newlineIndex + 1);
-
-          if (!line.trim()) continue;
-
-          // Vercel AI SDK format: "0:text" where text is the content
-          if (line.startsWith('0:')) {
-            const text = line.substring(2);
-            if (text) {
-              // Add to queue for character-by-character streaming
-              textQueue += text;
-              // Start processing queue if not already processing
-              processQueue();
-            }
-          }
-        }
-      }
-
-      // Process any remaining buffer (final chunk without newline)
-      if (buffer.trim()) {
-        if (buffer.startsWith('0:')) {
-          const text = buffer.substring(2);
-          if (text) {
-            // Add to queue for character-by-character streaming
-            textQueue += text;
-            processQueue();
-          }
-        } else if (buffer.trim() && !buffer.startsWith('event:') && !buffer.startsWith('id:')) {
-          // Add to queue for character-by-character streaming
-          textQueue += buffer;
-          processQueue();
-        }
-      }
       
-      // Wait for queue to finish processing all remaining text
-      while (isProcessingQueue || textQueue.length > 0) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        if (textQueue.length > 0 && !isProcessingQueue) {
-          processQueue();
-        }
-      }
-
-      messages.push({ role: 'assistant', content: assistantMessage });
+      // Start streaming immediately
+      streamText();
       
       // Check if this is first user message and show info collection bubble
       setTimeout(() => {
@@ -2258,10 +2475,23 @@
     showLoading();
     
     try {
-      // Prepare messages for API (include hidden message)
-      const apiMessages = messages.map(msg => ({
+      // Prepare messages for API - ensure exact format matching live-preview.tsx
+      const apiMessages = messages
+        .filter(msg => {
+          if (msg.id && typeof msg.id === 'string' && msg.id.startsWith('hidden-info-')) {
+            return false;
+          }
+          if (!msg.content || typeof msg.content !== 'string' || msg.content.trim() === '') {
+            return false;
+          }
+          if (msg.id && typeof msg.id === 'string' && msg.id.startsWith('info-collection-')) {
+            return false;
+          }
+          return msg && msg.role && (msg.role === 'user' || msg.role === 'assistant');
+        })
+        .map(msg => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
-        content: msg.content
+          content: String(msg.content).trim()
       }));
       
       const response = await fetch(`${apiBaseUrl}/api/chat`, {
@@ -2274,6 +2504,7 @@
           botId: botData.id,
           knowledgeBase: botData.knowledgeBase || '',
           agentName: botData.agentName,
+          role: botData.role,
           collectInfoEnabled: botData.collectInfoEnabled || false,
           collectName: botData.collectName || false,
           collectEmail: botData.collectEmail || false,
@@ -2289,8 +2520,6 @@
       // Handle streaming response (same as handleSubmit)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let assistantMessage = '';
-      let buffer = '';
       
       const messagesContainer = document.getElementById('chatbot-widget-messages');
       if (!messagesContainer) {
@@ -2300,8 +2529,91 @@
         return;
       }
       
-      removeLoading();
+      // Keep loading indicator visible while reading stream
       
+      // Process stream - improved to capture complete response
+      let fullText = '';
+      let streamBuffer = '';
+
+      // Read the entire stream first to ensure we get the complete response
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value, { stream: true });
+        streamBuffer += chunk;
+        
+        // Process complete lines
+        while (true) {
+          const newlineIndex = streamBuffer.indexOf('\n');
+          if (newlineIndex === -1) break;
+          
+          const line = streamBuffer.substring(0, newlineIndex);
+          streamBuffer = streamBuffer.substring(newlineIndex + 1);
+          
+          if (!line.trim()) continue;
+          
+          // Vercel AI SDK format: "0:text" where text is the content
+          if (line.startsWith('0:')) {
+            const text = line.substring(2);
+            if (text) {
+              fullText += text;
+            }
+          } else if (line.startsWith('data:')) {
+            // Handle Server-Sent Events format
+            const text = line.substring(5).trim();
+            if (text && text !== '[DONE]') {
+              try {
+                const parsed = JSON.parse(text);
+                if (parsed && parsed.content) {
+                  fullText += parsed.content;
+                } else if (typeof parsed === 'string') {
+                  fullText += parsed;
+                }
+              } catch (e) {
+                fullText += text;
+              }
+            }
+          } else if (!line.startsWith('event:') && !line.startsWith('id:') && !line.startsWith(':')) {
+            // Handle plain text (fallback)
+            fullText += line;
+          }
+        }
+      }
+      
+      // Process any remaining buffer
+      if (streamBuffer.trim()) {
+        if (streamBuffer.startsWith('0:')) {
+          fullText += streamBuffer.substring(2);
+        } else if (streamBuffer.startsWith('data:')) {
+          const text = streamBuffer.substring(5).trim();
+          if (text && text !== '[DONE]') {
+            try {
+              const parsed = JSON.parse(text);
+              if (parsed && parsed.content) {
+                fullText += parsed.content;
+              } else if (typeof parsed === 'string') {
+                fullText += parsed;
+              }
+            } catch (e) {
+              fullText += text;
+            }
+          }
+        } else if (!streamBuffer.startsWith('event:') && !streamBuffer.startsWith('id:') && !streamBuffer.startsWith(':')) {
+          fullText += streamBuffer;
+        }
+      }
+
+      // Remove loading indicator now that we have content ready
+      removeLoading();
+
+      // Only create message div after we have content to display
+      if (!fullText.trim()) {
+        messages.push({ role: 'assistant', content: '' });
+        return;
+      }
+
+      // Now create the message div and start streaming
       const messageDiv = document.createElement('div');
       messageDiv.className = 'chatbot-widget-message assistant';
       
@@ -2330,162 +2642,39 @@
       
       // Ensure messages container is visible
       updateWelcomeScreen();
+
+      // Now stream the complete text for UI effect - faster streaming
+      let assistantMessage = fullText;
       
-      // Process stream (same logic as handleSubmit)
-      let textQueue = '';
-      let isProcessingQueue = false;
-      
-      // Store reference to markdownWrapper in closure
-      const markdownWrapperRef = markdownWrapper;
-      const messagesContainerRef = messagesContainer;
-      
-      const processQueue = async () => {
-        if (isProcessingQueue || textQueue.length === 0) return;
-        isProcessingQueue = true;
-        
-        while (textQueue.length > 0) {
-          const chunkSize = Math.min(3, textQueue.length);
-          const chunk = textQueue.substring(0, chunkSize);
-          textQueue = textQueue.substring(chunkSize);
-          assistantMessage += chunk;
-          
-          if (markdownWrapperRef) {
-            markdownWrapperRef.innerHTML = markdownToHtml(assistantMessage);
+      // Stream in chunks for faster display while maintaining smooth effect
+      let charIndex = 0;
+      const chunkSize = Math.max(5, Math.floor(fullText.length / 50)); // Adaptive chunk size
+      const streamText = () => {
+        if (charIndex < fullText.length) {
+          const nextIndex = Math.min(charIndex + chunkSize, fullText.length);
+          const currentText = fullText.substring(0, nextIndex);
+          if (markdownWrapper) {
+            markdownWrapper.innerHTML = markdownToHtml(currentText);
           }
-          if (messagesContainerRef) {
-            messagesContainerRef.scrollTop = messagesContainerRef.scrollHeight;
+          if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
           }
-          
-          if (textQueue.length > 0) {
-            await new Promise(resolve => setTimeout(resolve, 20));
+          charIndex = nextIndex;
+          setTimeout(streamText, 10); // Faster: 10ms delay for smooth but quick streaming
+        } else {
+          // Streaming complete - ensure final markdown is applied
+          if (markdownWrapper) {
+            markdownWrapper.innerHTML = markdownToHtml(fullText);
           }
+          if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+          messages.push({ role: 'assistant', content: fullText });
         }
-        
-        isProcessingQueue = false;
       };
       
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        buffer += chunk;
-        
-        // Debug: Log buffer to understand format (only first time)
-        if (buffer.length > 0 && buffer.length < 500 && !buffer.includes('\n')) {
-          console.log('ChatbotWidget: First chunk (no newline yet):', JSON.stringify(buffer.substring(0, 200)));
-        }
-        
-        while (true) {
-          const newlineIndex = buffer.indexOf('\n');
-          if (newlineIndex === -1) break;
-          
-          const line = buffer.substring(0, newlineIndex);
-          buffer = buffer.substring(newlineIndex + 1);
-          
-          if (!line.trim()) continue;
-          
-          // Handle Vercel AI SDK format: "0:text"
-          if (line.startsWith('0:')) {
-            const text = line.substring(2);
-            if (text) {
-              textQueue += text;
-              processQueue();
-            }
-          } else if (line.startsWith('data:')) {
-            // Handle Server-Sent Events format: "data: text"
-            const text = line.substring(5).trim();
-            if (text && text !== '[DONE]') {
-              // Try to parse as JSON, if not, use as plain text
-              try {
-                const parsed = JSON.parse(text);
-                if (parsed && parsed.content) {
-                  textQueue += parsed.content;
-                  processQueue();
-                }
-              } catch (e) {
-                // Not JSON, use as plain text
-                textQueue += text;
-                processQueue();
-              }
-            }
-          } else if (!line.startsWith('event:') && !line.startsWith('id:') && !line.startsWith(':')) {
-            // Handle plain text format (direct text response)
-            // This catches any text that doesn't match known formats
-            console.log('ChatbotWidget: Processing plain text line:', line.substring(0, 50));
-            textQueue += line;
-            processQueue();
-          }
-        }
-      }
-      
-      // Process remaining buffer
-      if (buffer.trim()) {
-        console.log('ChatbotWidget: Processing remaining buffer:', JSON.stringify(buffer.substring(0, 200)));
-        if (buffer.startsWith('0:')) {
-          const text = buffer.substring(2);
-          if (text) {
-            textQueue += text;
-            processQueue();
-          }
-        } else if (buffer.startsWith('data:')) {
-          const text = buffer.substring(5).trim();
-          if (text && text !== '[DONE]') {
-            try {
-              const parsed = JSON.parse(text);
-              if (parsed && parsed.content) {
-                textQueue += parsed.content;
-                processQueue();
-              } else if (typeof parsed === 'string') {
-                textQueue += parsed;
-                processQueue();
-              }
-            } catch (e) {
-              textQueue += text;
-              processQueue();
-            }
-          }
-        } else if (!buffer.startsWith('event:') && !buffer.startsWith('id:') && !buffer.startsWith(':')) {
-          // Handle plain text format - this is important for responses that come as plain text
-          console.log('ChatbotWidget: Adding remaining buffer as plain text:', buffer.substring(0, 100));
-          textQueue += buffer;
-          processQueue();
-        }
-      }
-      
-      // Debug: Log final state
-      console.log('ChatbotWidget: Finished processing stream. Assistant message length:', assistantMessage.length, 'Text queue length:', textQueue.length);
-      
-      while (isProcessingQueue || textQueue.length > 0) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-        if (textQueue.length > 0 && !isProcessingQueue) {
-          processQueue();
-        }
-      }
-      
-      // Ensure final markdown conversion after all streaming is complete
-      if (assistantMessage && assistantMessage.trim() && markdownWrapperRef) {
-        markdownWrapperRef.innerHTML = markdownToHtml(assistantMessage);
-        if (messagesContainerRef) {
-          messagesContainerRef.scrollTop = messagesContainerRef.scrollHeight;
-        }
-        console.log('ChatbotWidget: Final assistant message after info collection:', assistantMessage);
-      }
-      
-      // Only add message if it has content
-      if (assistantMessage && assistantMessage.trim()) {
-        messages.push({ role: 'assistant', content: assistantMessage });
-        console.log('ChatbotWidget: Successfully added assistant message to array. Length:', assistantMessage.length);
-      } else {
-        console.warn('ChatbotWidget: Empty assistant message received after info collection');
-        console.warn('ChatbotWidget: Buffer remaining:', buffer);
-        console.warn('ChatbotWidget: AssistantMessage value:', assistantMessage);
-        console.warn('ChatbotWidget: TextQueue remaining:', textQueue);
-        // Remove the empty message div
-        if (messageDiv && messageDiv.parentNode) {
-          messageDiv.parentNode.removeChild(messageDiv);
-        }
-      }
+      // Start streaming immediately
+      streamText();
     } catch (error) {
       console.error('ChatbotWidget: Error sending info', error);
       removeLoading();
