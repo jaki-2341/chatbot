@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from './components/header';
 import Dashboard from './components/dashboard';
 import Builder from './components/builder';
@@ -15,6 +16,7 @@ import { BotTemplate } from './templates/bot-templates';
 type View = 'dashboard' | 'builder';
 
 export default function Home() {
+  const router = useRouter();
   const { isAuthenticated, isLoading, login } = useAuth();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [editingBot, setEditingBot] = useState<Bot | undefined>();
@@ -61,8 +63,8 @@ export default function Home() {
       
       // Close panel and navigate to builder
       setShowTemplatePanel(false);
-      setEditingBot(savedBot);
-      setCurrentView('builder');
+      // Navigate to builder route with bot ID
+      router.push(`/builder/${savedBot.id}`);
     } catch (error) {
       console.error('Error creating new bot:', error);
       alert('Failed to create new chatbot. Please try again.');
@@ -124,8 +126,8 @@ export default function Home() {
     setEmbedModalBot(bot);
   };
 
-  const handleLoginSuccess = () => {
-    login();
+  const handleLoginSuccess = (userData?: any) => {
+    login(userData);
   };
 
   // Show loading state while checking authentication
@@ -147,25 +149,27 @@ export default function Home() {
 
   return (
     <div className="bg-slate-50 text-slate-800 h-screen flex flex-col overflow-hidden">
-      {currentView === 'dashboard' && <Header />}
+      <Header />
       <main className="flex-1 relative overflow-hidden flex flex-col">
         {currentView === 'dashboard' ? (
-          <Dashboard
-            onNavigateToBuilder={handleNavigateToBuilder}
-            onShowEmbed={handleShowEmbed}
+          <Dashboard 
+            onShowEmbed={handleShowEmbed} 
+            onNewChatbot={() => setShowTemplatePanel(true)}
           />
-        ) : (
+        ) : editingBot ? (
           <Builder bot={editingBot} onBack={handleBackToDashboard} onSave={handleSaveBot} />
-        )}
-    </main>
+        ) : null}
+      </main>
+      {showTemplatePanel && (
+        <TemplateSelectionPanel
+          isOpen={showTemplatePanel}
+          onClose={() => setShowTemplatePanel(false)}
+          onSelectTemplate={handleTemplateSelect}
+        />
+      )}
       {embedModalBot && (
         <EmbedModal bot={embedModalBot} onClose={() => setEmbedModalBot(null)} />
       )}
-      <TemplateSelectionPanel
-        isOpen={showTemplatePanel}
-        onClose={() => setShowTemplatePanel(false)}
-        onSelectTemplate={handleTemplateSelect}
-      />
     </div>
   );
 }

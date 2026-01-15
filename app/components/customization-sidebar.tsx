@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Bot } from '@/app/types/bot';
 import { ConfigSection } from './customization/config-section';
 import { KnowledgeSection } from './customization/knowledge-section';
@@ -16,6 +16,15 @@ interface CustomizationSidebarProps {
 
 type Tab = 'config' | 'knowledge' | 'style';
 
+// Map URL tab values to Tab type
+const tabMap: Record<string, Tab> = {
+  'config': 'config',
+  'knowledge': 'knowledge',
+  'knowledge-base': 'knowledge',
+  'appearance': 'style',
+  'style': 'style',
+};
+
 export default function CustomizationSidebar({
   bot,
   savedBot,
@@ -23,7 +32,22 @@ export default function CustomizationSidebar({
   onBack,
   onSave,
 }: CustomizationSidebarProps) {
-  const [activeTab, setActiveTab] = useState<Tab>('config');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  
+  // Get active tab from URL, default to 'config'
+  const tabParam = searchParams.get('tab') || 'config';
+  const activeTab: Tab = tabMap[tabParam] || 'config';
+
+  // Update URL when tab changes
+  const setActiveTab = (tab: Tab) => {
+    const params = new URLSearchParams(searchParams.toString());
+    // Map Tab type to URL-friendly value
+    const urlTabValue = tab === 'knowledge' ? 'knowledge-base' : tab;
+    params.set('tab', urlTabValue);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <div className="w-[20%] border-r border-slate-200 flex flex-col bg-slate-50 overflow-y-auto custom-scrollbar">

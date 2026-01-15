@@ -434,6 +434,83 @@ export function AppearanceSection({ bot, savedBot, onBotChange }: AppearanceSect
           </div>
         </div>
       </div>
+
+      {/* CTA Bubble Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 mb-1">
+          <div className="p-1.5 bg-indigo-50 rounded-lg">
+            <MessageCircle className="w-4 h-4 text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">CTA Bubble</h3>
+            <p className="text-xs text-slate-500">Show a call-to-action above the chatbot button</p>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-4">
+          <label className="flex items-center justify-between cursor-pointer group">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg transition-colors ${
+                bot.ctaEnabled ? 'bg-indigo-100' : 'bg-slate-100'
+              }`}>
+                <MessageCircle className={`w-4 h-4 ${
+                  bot.ctaEnabled ? 'text-indigo-600' : 'text-slate-400'
+                }`} />
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-slate-900 block">Enable CTA Bubble</span>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {bot.ctaEnabled ? 'CTA bubble will be displayed above button' : 'CTA bubble is hidden'}
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-block w-11 h-6 align-middle select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={bot.ctaEnabled || false}
+                onChange={(e) => onBotChange({ ctaEnabled: e.target.checked })}
+                className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-300 checked:left-[calc(100%-1.25rem)] checked:border-blue-500 transition-all opacity-0 z-10"
+              />
+              <span
+                className={`block overflow-hidden h-6 rounded-full transition-colors duration-200 ${
+                  bot.ctaEnabled ? 'bg-blue-500' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all duration-200 shadow-sm ${
+                    bot.ctaEnabled ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'
+                  }`}
+                ></span>
+              </span>
+            </label>
+          </label>
+
+          {bot.ctaEnabled && (
+            <div className="pt-4 border-t border-slate-100">
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+                  <MessageCircle className="w-4 h-4 text-slate-500" />
+                  CTA Text
+                </label>
+                <input
+                  type="text"
+                  maxLength={20}
+                  value={bot.ctaText || `Chat with ${bot.agentName || bot.name || 'us'}`}
+                  onChange={(e) => onBotChange({ ctaText: e.target.value })}
+                  placeholder={`Chat with ${bot.agentName || bot.name || 'us'}`}
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm"
+                />
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-xs text-slate-400">Main call-to-action text</p>
+                  <p className="text-xs text-slate-400">
+                    {(bot.ctaText || `Chat with ${bot.agentName || bot.name || 'us'}`).length}/20
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

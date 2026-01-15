@@ -53,6 +53,9 @@ export async function GET(
         collectName: botData.collectName,
         collectEmail: botData.collectEmail,
         collectPhone: botData.collectPhone,
+        ctaEnabled: botData.ctaEnabled,
+        ctaStatus: botData.ctaStatus,
+        ctaText: botData.ctaText,
       },
       { headers: corsHeaders }
     );

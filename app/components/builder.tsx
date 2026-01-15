@@ -1,7 +1,7 @@
 'use client';
 
 import { Bot } from '@/app/types/bot';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { ArrowLeft, Save, AlertTriangle, X, Code } from 'lucide-react';
 import CustomizationSidebar from './customization-sidebar';
 import LivePreview from './live-preview';
@@ -37,6 +37,8 @@ function hasBotChanges(currentBot: Bot, savedBot: Bot | null): boolean {
     'collectName',
     'collectPhone',
     'showAvatarOnButton',
+    'ctaEnabled',
+    'ctaText',
   ];
 
   for (const field of fieldsToCompare) {
@@ -254,13 +256,15 @@ export default function Builder({ bot: initialBot, onBack, onSave }: BuilderProp
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <CustomizationSidebar
-          bot={bot}
-          savedBot={savedBot}
-          onBotChange={handleBotChange}
-          onBack={onBack}
-          onSave={() => {}}
-        />
+        <Suspense fallback={<div className="w-[20%] border-r border-slate-200 flex flex-col bg-slate-50" />}>
+          <CustomizationSidebar
+            bot={bot}
+            savedBot={savedBot}
+            onBotChange={handleBotChange}
+            onBack={onBack}
+            onSave={() => {}}
+          />
+        </Suspense>
         <LivePreview bot={bot} onBotChange={handleBotChange} />
       </div>
     </main>

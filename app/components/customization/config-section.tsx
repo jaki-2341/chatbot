@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Bot } from '@/app/types/bot';
 import {
   Power,
@@ -14,6 +15,10 @@ import {
   Plus,
   Trash2,
   Mail,
+  Sparkles,
+  Loader2,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface ConfigSectionProps {
@@ -23,6 +28,15 @@ interface ConfigSectionProps {
 
 export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
   const [newQuestion, setNewQuestion] = useState('');
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [questionToDelete, setQuestionToDelete] = useState<{ index: number; text: string } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Use bot state for collect info settings
   const collectInfoEnabled = bot.collectInfoEnabled || false;
@@ -54,9 +68,65 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
 
   const handleRemoveQuestion = (index: number) => {
     const currentQuestions = bot.suggestedQuestions || [];
-    onBotChange({ 
-      suggestedQuestions: currentQuestions.filter((_, i) => i !== index) 
-    });
+    const questionText = currentQuestions[index];
+    setQuestionToDelete({ index, text: questionText });
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteQuestion = () => {
+    if (questionToDelete !== null) {
+      const currentQuestions = bot.suggestedQuestions || [];
+      onBotChange({ 
+        suggestedQuestions: currentQuestions.filter((_, i) => i !== questionToDelete.index) 
+      });
+      setShowDeleteModal(false);
+      setQuestionToDelete(null);
+    }
+  };
+
+  const cancelDeleteQuestion = () => {
+    setShowDeleteModal(false);
+    setQuestionToDelete(null);
+  };
+
+  const handleGenerateQuestions = async () => {
+    if (!bot.knowledgeBase || bot.knowledgeBase.trim().length === 0) {
+      alert('Please upload files and generate the knowledge base first.');
+      return;
+    }
+
+    setIsGeneratingQuestions(true);
+    
+    try {
+      const response = await fetch('/api/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ knowledgeBase: bot.knowledgeBase }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate questions');
+      }
+
+      const data = await response.json();
+      const generatedQuestions = data.questions || [];
+
+      if (generatedQuestions.length > 0) {
+        // Replace existing questions with generated ones (up to 4)
+        const questionsToAdd = generatedQuestions.slice(0, 4);
+        onBotChange({ 
+          suggestedQuestions: questionsToAdd 
+        });
+      } else {
+        throw new Error('No questions were generated');
+      }
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      alert(`Failed to generate questions: ${(error as Error).message}`);
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
   };
 
   return (
@@ -195,16 +265,47 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
               onChange={(e) => onBotChange({ welcomeMessage: e.target.value })}
               rows={2}
               placeholder="Hello! How can I help you today?"
-              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm resize-none"
+              className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm resize-y"
             />
             <p className="text-xs text-slate-400 mt-1.5">First message users will see</p>
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
-              <BotIcon className="w-4 h-4 text-slate-500" />
-              Suggested Questions
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <BotIcon className="w-4 h-4 text-slate-500" />
+                Suggested Questions
+              </label>
+              <div className="relative">
+                <button
+                  onClick={handleGenerateQuestions}
+                  disabled={isGeneratingQuestions || !bot.knowledgeBase || bot.knowledgeBase.trim().length === 0}
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isGeneratingQuestions ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3 h-3" />
+                      <span>Generate</span>
+                    </>
+                  )}
+                </button>
+                {showTooltip && !isGeneratingQuestions && (
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900 text-white text-xs rounded-lg p-3 shadow-lg z-50 pointer-events-none">
+                    <div className="absolute -top-1 right-4 w-2 h-2 bg-slate-900 transform rotate-45"></div>
+                    <p className="text-white">
+                      Generate questions based on your knowledge base content. Upload files and generate the knowledge base first.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
             
             {/* Input field - static position at top */}
             <div className="flex gap-2 mb-3">
@@ -424,6 +525,51 @@ export function ConfigSection({ bot, onBotChange }: ConfigSectionProps) {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {mounted && showDeleteModal && questionToDelete && createPortal(
+        <>
+          <div className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm z-[10000]" style={{ margin: 0, padding: 0 }} />
+          <div className="fixed top-0 left-0 right-0 bottom-0 z-[10001] flex items-center justify-center p-4 pointer-events-none" style={{ margin: 0 }}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all pointer-events-auto">
+              <div className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-red-50 rounded-full">
+                    <AlertTriangle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">Delete Question?</h3>
+                    <p className="text-sm text-slate-600 mb-4">
+                      Are you sure you want to delete &quot;<span className="font-medium text-slate-900">{questionToDelete.text}</span>&quot;? This action cannot be undone.
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={confirmDeleteQuestion}
+                        className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={cancelDeleteQuestion}
+                        className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    onClick={cancelDeleteQuestion}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 }

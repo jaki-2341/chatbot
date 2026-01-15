@@ -31,9 +31,6 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
-    // Log the response for debugging (remove in production)
-    console.log('API Response:', JSON.stringify(data, null, 2));
-
     if (!response.ok) {
       return NextResponse.json(
         { error: data.message || data.error || 'Login failed' },

@@ -348,6 +348,76 @@
         width: 28px;
         height: 28px;
       }
+      .chatbot-widget-cta-bubble {
+        position: absolute;
+        bottom: 72px;
+        ${position === 'bottom-right' ? 'right: 0;' : 'left: 0;'}
+        background: white;
+        border-radius: 12px;
+        padding: 10px 12px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        width: fit-content;
+        max-width: 200px;
+        z-index: 999998;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: opacity 0.3s ease, transform 0.3s ease;
+      }
+      .chatbot-widget-cta-bubble.show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+      .chatbot-widget-cta-bubble.show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+      @media (max-width: 480px) {
+        .chatbot-widget-cta-bubble {
+          bottom: 72px;
+          padding: 8px 10px;
+          max-width: 200px;
+        }
+      }
+      .chatbot-widget-cta-bubble::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        ${position === 'bottom-right' ? 'right: 20px;' : 'left: 20px;'}
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 8px solid white;
+      }
+      .chatbot-widget-cta-status {
+        font-size: 10px;
+        font-weight: 600;
+        color: ${primaryColor};
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        line-height: 1.4;
+        white-space: nowrap;
+      }
+      .chatbot-widget-cta-text {
+        font-size: 13px;
+        font-weight: 500;
+        color: #1f2937;
+        line-height: 1.5;
+        white-space: nowrap;
+      }
+      @media (max-width: 480px) {
+        .chatbot-widget-cta-status {
+          font-size: 9px;
+        }
+        .chatbot-widget-cta-text {
+          font-size: 12px;
+        }
+      }
       .chatbot-widget-window {
         position: absolute;
         bottom: 70px;
@@ -1057,26 +1127,11 @@
       }
       .chatbot-widget-info-form-buttons {
         display: flex;
-        gap: 8px;
-      }
-      .chatbot-widget-info-form-skip-btn {
-        flex: 1;
-        padding: 8px;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        color: #374151;
-        background: #f3f4f6;
-        border: none;
-        cursor: pointer;
-        transition: background 0.2s;
-      }
-      .chatbot-widget-info-form-skip-btn:hover {
-        background: #e5e7eb;
+        width: 100%;
       }
       .chatbot-widget-info-form-send-btn {
-        flex: 1;
-        padding: 8px;
+        width: 100%;
+        padding: 8px 12px;
         border-radius: 8px;
         font-size: 14px;
         font-weight: 500;
@@ -1159,6 +1214,39 @@
     container.className = 'chatbot-widget-container';
     container.id = 'chatbot-widget-container';
 
+    // Create CTA bubble if enabled
+    let ctaBubble = null;
+    if (botData?.ctaEnabled) {
+      // Clear sessionStorage flag on page load so CTA shows again after reload
+      // CTA will hide when user opens the chat during this page session
+      const storageKey = 'chatbot_' + botData.id + '_widget_opened';
+      if (typeof Storage !== 'undefined') {
+        sessionStorage.removeItem(storageKey);
+      }
+      
+      ctaBubble = document.createElement('div');
+      ctaBubble.className = 'chatbot-widget-cta-bubble';
+      ctaBubble.id = 'chatbot-widget-cta-bubble';
+      
+      const ctaStatus = document.createElement('div');
+      ctaStatus.className = 'chatbot-widget-cta-status';
+      ctaStatus.textContent = 'ONLINE';
+      
+      const ctaText = document.createElement('div');
+      ctaText.className = 'chatbot-widget-cta-text';
+      ctaText.textContent = botData.ctaText || `Chat with ${botData.agentName || botData.name || 'us'}`;
+      
+      ctaBubble.appendChild(ctaStatus);
+      ctaBubble.appendChild(ctaText);
+      
+      // Show CTA bubble (will hide when user opens chat)
+      setTimeout(() => {
+        if (ctaBubble) {
+          ctaBubble.classList.add('show');
+        }
+      }, 500);
+    }
+
     // Create button
     const button = document.createElement('button');
     button.className = 'chatbot-widget-button';
@@ -1178,6 +1266,9 @@
     const window = createChatWindow(primaryColor);
     
     container.appendChild(window);
+    if (ctaBubble) {
+      container.appendChild(ctaBubble);
+    }
     container.appendChild(button);
     document.body.appendChild(container);
 
@@ -2249,14 +2340,6 @@
     const buttonsDiv = document.createElement('div');
     buttonsDiv.className = 'chatbot-widget-info-form-buttons';
     
-    const skipBtn = document.createElement('button');
-    skipBtn.type = 'button';
-    skipBtn.className = 'chatbot-widget-info-form-skip-btn';
-    skipBtn.textContent = 'Skip';
-    skipBtn.onclick = function() {
-      handleInfoSubmit(collectingField, '', true);
-    };
-    
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
     sendBtn.className = 'chatbot-widget-info-form-send-btn';
@@ -2264,7 +2347,7 @@
     sendBtn.onclick = function() {
       const value = input.value.trim();
       if (value) {
-        handleInfoSubmit(collectingField, value, false);
+        handleInfoSubmit(collectingField, value);
       }
     };
     
@@ -2273,12 +2356,11 @@
         e.preventDefault();
         const value = input.value.trim();
         if (value) {
-          handleInfoSubmit(collectingField, value, false);
+          handleInfoSubmit(collectingField, value);
         }
       }
     });
     
-    buttonsDiv.appendChild(skipBtn);
     buttonsDiv.appendChild(sendBtn);
     
     formDiv.appendChild(input);
@@ -2295,13 +2377,11 @@
   }
   
   // Handle info submission
-  function handleInfoSubmit(field, value, skipped) {
-    if (!skipped && !value.trim()) return;
+  function handleInfoSubmit(field, value) {
+    if (!value.trim()) return;
     
     // Store collected information
-    if (!skipped) {
-      collectedInfo[field] = value;
-    }
+    collectedInfo[field] = value;
     collectedFields.add(field);
     
     // Build queue of remaining fields
@@ -2332,7 +2412,7 @@
           
           // Update message content
           let newContent = '';
-          if (field === 'name' && !skipped) {
+          if (field === 'name') {
             newContent = 'Thank you, ' + value + '!';
           } else {
             newContent = 'Thank you!';
@@ -2772,6 +2852,30 @@
         // Show static welcome message initially (if input not focused)
         if (!isInputFocused) {
           updateWelcomeScreen();
+        }
+        
+        // Hide CTA bubble when widget opens for the first time in this session
+        if (botData?.ctaEnabled && typeof Storage !== 'undefined' && botData.id) {
+          const storageKey = 'chatbot_' + botData.id + '_widget_opened';
+          const hasBeenOpened = sessionStorage.getItem(storageKey) === 'true';
+          
+          if (!hasBeenOpened) {
+            // Mark as opened in sessionStorage (will reset on page refresh)
+            sessionStorage.setItem(storageKey, 'true');
+            
+            // Hide CTA bubble with fade out animation
+            const ctaBubble = document.getElementById('chatbot-widget-cta-bubble');
+            if (ctaBubble) {
+              ctaBubble.classList.remove('show');
+              // Add fade out animation
+              ctaBubble.style.opacity = '0';
+              ctaBubble.style.transform = 'translateY(10px)';
+              ctaBubble.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+              setTimeout(() => {
+                ctaBubble.style.display = 'none';
+              }, 300);
+            }
+          }
         }
       } else {
         window.classList.remove('open');

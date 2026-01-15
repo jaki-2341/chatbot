@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bot } from '@/app/types/bot';
 import {
   AlignLeft,
@@ -14,6 +15,7 @@ import {
   Trash2,
   Maximize2,
   X,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface KnowledgeSectionProps {
@@ -32,6 +34,13 @@ export function KnowledgeSection({ bot, onBotChange }: KnowledgeSectionProps) {
   const [showExpandModal, setShowExpandModal] = useState(false);
   const [expandedKnowledgeBase, setExpandedKnowledgeBase] = useState('');
   const expandModalRef = useRef<HTMLDivElement>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<{ index: number; fileName: string } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleGenerateFAQs = async () => {
     if (!generatePrompt.trim()) {
@@ -437,30 +446,11 @@ export function KnowledgeSection({ bot, onBotChange }: KnowledgeSectionProps) {
                           </div>
                         </div>
                         <button
-                          onClick={async () => {
+                          onClick={() => {
                             const fileToRemove = bot.files?.[index];
                             const fileName = typeof fileToRemove === 'string' ? fileToRemove : fileToRemove?.name;
-                            
-                            // If it's a string (already uploaded) and we have bot.id, delete from server
-                            if (typeof fileToRemove === 'string' && bot.id && fileName) {
-                              try {
-                                const response = await fetch(`/api/bots/${bot.id}/files/${encodeURIComponent(fileName)}`, {
-                                  method: 'DELETE',
-                                });
-
-                                if (!response.ok) {
-                                  throw new Error('Failed to delete file');
-                                }
-                              } catch (error) {
-                                console.error('Error deleting file:', error);
-                                alert('Failed to delete file from server. Please try again.');
-                                return;
-                              }
-                            }
-
-                            // Update local state
-                            const newFiles = bot.files?.filter((_, i) => i !== index);
-                            onBotChange({ files: newFiles });
+                            setFileToDelete({ index, fileName: fileName || '' });
+                            setShowDeleteModal(true);
                           }}
                           className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 shrink-0"
                           title="Remove"
@@ -482,6 +472,87 @@ export function KnowledgeSection({ bot, onBotChange }: KnowledgeSectionProps) {
           </div>
         </div>
       </div>
+
+      {/* Delete File Confirmation Modal */}
+      {mounted && showDeleteModal && fileToDelete && createPortal(
+        <>
+          <div className="fixed top-0 left-0 right-0 bottom-0 bg-black/50 backdrop-blur-sm z-[10000]" style={{ margin: 0, padding: 0 }} />
+          <div className="fixed top-0 left-0 right-0 bottom-0 z-[10001] flex items-center justify-center p-4 pointer-events-none" style={{ margin: 0 }}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all pointer-events-auto">
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-red-50 rounded-full">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Delete File?</h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Are you sure you want to delete &quot;<span className="font-medium text-slate-900">{fileToDelete.fileName}</span>&quot;? This action cannot be undone and the file will be removed from your knowledge base.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={async () => {
+                        if (fileToDelete === null) return;
+                        
+                        const fileToRemove = bot.files?.[fileToDelete.index];
+                        const fileName = typeof fileToRemove === 'string' ? fileToRemove : fileToRemove?.name;
+                        
+                        // If it's a string (already uploaded) and we have bot.id, delete from server
+                        if (typeof fileToRemove === 'string' && bot.id && fileName) {
+                          try {
+                            const response = await fetch(`/api/bots/${bot.id}/files/${encodeURIComponent(fileName)}`, {
+                              method: 'DELETE',
+                            });
+
+                            if (!response.ok) {
+                              throw new Error('Failed to delete file');
+                            }
+                          } catch (error) {
+                            console.error('Error deleting file:', error);
+                            alert('Failed to delete file from server. Please try again.');
+                            setShowDeleteModal(false);
+                            setFileToDelete(null);
+                            return;
+                          }
+                        }
+
+                        // Update local state
+                        const newFiles = bot.files?.filter((_, i) => i !== fileToDelete.index);
+                        onBotChange({ files: newFiles });
+                        setShowDeleteModal(false);
+                        setFileToDelete(null);
+                      }}
+                      className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDeleteModal(false);
+                        setFileToDelete(null);
+                      }}
+                      className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setFileToDelete(null);
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   );
 }

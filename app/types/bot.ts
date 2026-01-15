@@ -22,6 +22,9 @@ export interface Bot {
   collectEmail?: boolean; // Collect email address
   collectName?: boolean; // Collect full name
   collectPhone?: boolean; // Collect phone number
+  ctaEnabled?: boolean; // Enable CTA bubble above chatbot button
+  ctaStatus?: string; // Status text (e.g., "ONLINE")
+  ctaText?: string; // CTA text (e.g., "Chat with Audrey")
   createdAt?: Date;
   updatedAt?: Date;
 }

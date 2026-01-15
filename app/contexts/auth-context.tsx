@@ -5,7 +5,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: () => void;
+  login: (userData?: any) => void;
   logout: () => void;
   user: any;
 }
@@ -21,17 +21,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check authentication status on mount
     const checkAuth = () => {
       const authStatus = localStorage.getItem('isAuthenticated');
-      const userData = localStorage.getItem('user');
-      
       if (authStatus === 'true') {
         setIsAuthenticated(true);
-        if (userData) {
-          try {
-            setUser(JSON.parse(userData));
-          } catch (e) {
-            console.error('Error parsing user data:', e);
-          }
-        }
       }
       setIsLoading(false);
     };
@@ -39,22 +30,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = () => {
+  const login = (userData?: any) => {
     setIsAuthenticated(true);
-    const userData = localStorage.getItem('user');
+    localStorage.setItem('isAuthenticated', 'true');
     if (userData) {
-      try {
-        setUser(JSON.parse(userData));
-      } catch (e) {
-        console.error('Error parsing user data:', e);
-      }
+      setUser(userData);
     }
   };
 
   const logout = () => {
     localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
     setIsAuthenticated(false);
     setUser(null);
   };

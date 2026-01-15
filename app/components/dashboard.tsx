@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Bot } from '@/app/types/bot';
-import { Plus, MessageSquare, Search, Filter, Activity, MessageSquare as MessageSquareIcon, Zap } from 'lucide-react';
+import { Plus, MessageSquare, Search, Filter } from 'lucide-react';
 import BotCard from './bot-card';
 import { useBots } from '@/app/hooks/use-bots';
 
 interface DashboardProps {
-  onNavigateToBuilder: (bot?: Bot) => void;
   onShowEmbed: (bot: Bot) => void;
+  onNewChatbot?: () => void;
 }
 
-export default function Dashboard({ onNavigateToBuilder, onShowEmbed }: DashboardProps) {
+export default function Dashboard({ onShowEmbed, onNewChatbot }: DashboardProps) {
+  const router = useRouter();
   const { bots: botsFromHook, deleteBot, updateBot, isLoading } = useBots();
   const [bots, setBots] = useState<Bot[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,11 +70,6 @@ export default function Dashboard({ onNavigateToBuilder, onShowEmbed }: Dashboar
     );
   }, [bots, searchQuery]);
 
-  // Calculate stats
-  const activeBots = bots.filter(b => b.status === 'Active').length;
-  const totalInteractions = 0; // Placeholder - would come from analytics
-  const avgResponseTime = '0.8s'; // Placeholder - would come from analytics
-
   // Calculate knowledge base size for each bot
   const getKnowledgeBaseSize = (bot: Bot) => {
     const fileCount = bot.files?.length || 0;
@@ -82,7 +79,7 @@ export default function Dashboard({ onNavigateToBuilder, onShowEmbed }: Dashboar
   };
 
   return (
-    <main className="flex-1 overflow-y-auto p-6 md:p-10 w-full">
+    <main className="flex-1 overflow-y-auto pt-8 md:pt-12 px-0 md:px-1 pb-0 md:pb-1 w-full">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Dashboard Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -91,43 +88,12 @@ export default function Dashboard({ onNavigateToBuilder, onShowEmbed }: Dashboar
             <p className="text-slate-500 mt-1">Manage your AI assistants and monitor their performance.</p>
           </div>
           <button
-            onClick={() => onNavigateToBuilder()}
+            onClick={() => onNewChatbot ? onNewChatbot() : router.push('/builder')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 shadow-sm transition-all active:scale-95"
           >
             <Plus className="w-5 h-5" />
             New Chatbot
           </button>
-        </div>
-
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-              <Activity className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">Active Sessions</p>
-              <p className="text-2xl font-bold text-slate-900">{activeBots}</p>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-              <MessageSquareIcon className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">Total Interactions</p>
-              <p className="text-2xl font-bold text-slate-900">{totalInteractions.toLocaleString()}</p>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-              <Zap className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-500">Avg. Response Time</p>
-              <p className="text-2xl font-bold text-slate-900">{avgResponseTime}</p>
-            </div>
-          </div>
         </div>
 
         {/* Filters */}
@@ -165,7 +131,7 @@ export default function Dashboard({ onNavigateToBuilder, onShowEmbed }: Dashboar
             </p>
             {!searchQuery && (
               <button
-                onClick={() => onNavigateToBuilder()}
+                onClick={() => onNewChatbot ? onNewChatbot() : router.push('/builder')}
                 className="text-blue-600 font-medium hover:underline"
               >
                 Create one now
@@ -178,7 +144,7 @@ export default function Dashboard({ onNavigateToBuilder, onShowEmbed }: Dashboar
               <BotCard
                 key={bot.id}
                 bot={bot}
-                onEdit={(bot) => onNavigateToBuilder(bot)}
+                onEdit={(bot) => router.push(`/builder/${bot.id}`)}
                 onDelete={handleDelete}
                 onShowEmbed={onShowEmbed}
                 onToggleStatus={handleToggleStatus}

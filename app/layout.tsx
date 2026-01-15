@@ -6,7 +6,7 @@ import { AuthProvider } from "./contexts/auth-context";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AI Chatbot Widget Builder",
+  title: "Proweaver Chatbot Builder",
   description: "Build and customize your AI chatbot widgets",
 };
 

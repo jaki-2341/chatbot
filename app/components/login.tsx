@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Bot, Mail, Lock, Loader2 } from 'lucide-react';
 
 interface LoginProps {
-  onLoginSuccess: () => void;
+  onLoginSuccess: (userData?: any) => void;
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
@@ -36,18 +36,10 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         throw new Error(data.error || 'Login failed');
       }
 
-      // Store auth token if provided
-      if (data.token) {
-        localStorage.setItem('authToken', data.token);
-      }
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
-
       // Mark as authenticated
       localStorage.setItem('isAuthenticated', 'true');
 
-      onLoginSuccess();
+      onLoginSuccess(data.user);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login');
     } finally {
@@ -66,7 +58,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 <Bot className="w-8 h-8" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Welcome to BotForge</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Welcome to Proweaver Chatbot Builder</h1>
             <p className="text-slate-600 text-sm">Sign in to access your chatbot dashboard</p>
           </div>
 

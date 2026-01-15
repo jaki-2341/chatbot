@@ -23,12 +23,10 @@ interface ChatMessage {
 function InfoCollectionForm({ 
   field, 
   onSubmit, 
-  onSkip,
   botColor
 }: { 
   field: string; 
   onSubmit: (field: string, value: string) => void; 
-  onSkip: () => void;
   botColor: string;
 }) {
   const [value, setValue] = useState('');
@@ -54,10 +52,6 @@ function InfoCollectionForm({
     }
   };
 
-  const handleSkip = () => {
-    onSkip();
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
       <input
@@ -68,24 +62,15 @@ function InfoCollectionForm({
         className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         autoFocus
       />
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={handleSkip}
-          className="flex-1 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
-        >
-          Skip
-        </button>
-        <button
-          type="submit"
-          className="flex-1 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-          style={{ backgroundColor: botColor }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-        >
-          Send
-        </button>
-      </div>
+      <button
+        type="submit"
+        className="w-full py-2 rounded-lg text-sm font-medium text-white transition-colors"
+        style={{ backgroundColor: botColor }}
+        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
+        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+      >
+        Send
+      </button>
     </form>
   );
 }
@@ -117,6 +102,7 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
   const [collectedInfo, setCollectedInfo] = useState<{name?: string, email?: string, phone?: string}>({});
   const [askingMessageId, setAskingMessageId] = useState<string | null>(null);
   const [showInfoCollectionBubble, setShowInfoCollectionBubble] = useState(false);
+  const [showCTA, setShowCTA] = useState(true);
 
   // Check localStorage on mount to see if info was already requested for this bot
   useEffect(() => {
@@ -124,8 +110,16 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
       const storageKey = `chatbot_${bot.id}_info_requested`;
       const requested = localStorage.getItem(storageKey) === 'true';
       setHasRequestedInfo(requested);
+      
+      // Clear sessionStorage flag on page load so CTA shows again after reload
+      // CTA will hide when user opens the chat during this page session
+      const widgetOpenedKey = `chatbot_${bot.id}_widget_opened`;
+      sessionStorage.removeItem(widgetOpenedKey);
+      
+      // Show CTA if enabled (will hide when user opens chat)
+      setShowCTA(bot.ctaEnabled || false);
     }
-  }, [bot.id]);
+  }, [bot.id, bot.ctaEnabled]);
 
   // Get welcome message - use as-is from bot configuration
   const getWelcomeMessage = useCallback(() => {
@@ -192,7 +186,14 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
     setAskingMessageId(null);
     setShowInfoCollectionBubble(false);
     infoBubbleCreatedRef.current = false;
-  }, [bot.id, setMessages]);
+    
+    // Reset CTA visibility when bot changes - clear flag and show CTA
+    if (typeof window !== 'undefined' && bot.id) {
+      const widgetOpenedKey = `chatbot_${bot.id}_widget_opened`;
+      sessionStorage.removeItem(widgetOpenedKey);
+      setShowCTA(bot.ctaEnabled || false);
+    }
+  }, [bot.id, bot.ctaEnabled, setMessages]);
 
   // Stream welcome message effect - only when input is focused
   useEffect(() => {
@@ -381,12 +382,12 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
     }
   }, [bot.id]);
 
-  const handleInfoSubmit = (field: string, value: string, skipped: boolean = false) => {
-    // If not skipped, validate value
-    if (!skipped && !value.trim()) return;
+  const handleInfoSubmit = (field: string, value: string) => {
+    // Validate value
+    if (!value.trim()) return;
     
-    // Store the collected information (only if not skipped) - don't show user message
-    const newCollectedInfo = skipped ? collectedInfo : {
+    // Store the collected information - don't show user message
+    const newCollectedInfo = {
       ...collectedInfo,
       [field]: value
     };
@@ -420,7 +421,7 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
         if (msg.id === askingMessageId) {
           // Build the new content: thank you + next question
           let newContent = '';
-          if (field === 'name' && !skipped) {
+          if (field === 'name') {
             newContent = `Thank you, ${value}!`;
           } else {
             newContent = 'Thank you!';
@@ -469,11 +470,6 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
     }
   };
 
-  // Add skip handler
-  const handleInfoSkip = () => {
-    if (!collectingField) return;
-    handleInfoSubmit(collectingField, '', true);
-  };
 
   const customHandleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -481,6 +477,17 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
     // If collecting info, don't submit normal message
     if (collectingField) {
       return;
+    }
+    
+    // Mark widget as opened in sessionStorage when user first interacts (sends message)
+    if (typeof window !== 'undefined' && bot.id && bot.ctaEnabled) {
+      const widgetOpenedKey = `chatbot_${bot.id}_widget_opened`;
+      const hasBeenOpened = sessionStorage.getItem(widgetOpenedKey) === 'true';
+      
+      if (!hasBeenOpened) {
+        sessionStorage.setItem(widgetOpenedKey, 'true');
+        setShowCTA(false);
+      }
     }
     
     handleSubmit(e);
@@ -865,6 +872,18 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
                   onClick={() => {
                     setIsFromSuggestedQuestion(false); // Reset flag for "Send us a message" click
                     setIsInputFocused(true);
+                    
+                    // Mark widget as opened when user clicks "Send us a message"
+                    if (typeof window !== 'undefined' && bot.id && bot.ctaEnabled) {
+                      const widgetOpenedKey = `chatbot_${bot.id}_widget_opened`;
+                      const hasBeenOpened = sessionStorage.getItem(widgetOpenedKey) === 'true';
+                      
+                      if (!hasBeenOpened) {
+                        sessionStorage.setItem(widgetOpenedKey, 'true');
+                        setShowCTA(false);
+                      }
+                    }
+                    
                     // Focus will trigger conversation view
                     setTimeout(() => {
                       const inputEl = document.querySelector('input[type="text"]') as HTMLInputElement;
@@ -926,6 +945,18 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
                         }
                         handleInputChange({ target: { value: question } } as any);
                         setIsInputFocused(true);
+                        
+                        // Mark widget as opened when user clicks suggested question
+                        if (typeof window !== 'undefined' && bot.id && bot.ctaEnabled) {
+                          const widgetOpenedKey = `chatbot_${bot.id}_widget_opened`;
+                          const hasBeenOpened = sessionStorage.getItem(widgetOpenedKey) === 'true';
+                          
+                          if (!hasBeenOpened) {
+                            sessionStorage.setItem(widgetOpenedKey, 'true');
+                            setShowCTA(false);
+                          }
+                        }
+                        
                         // Auto-submit to start conversation
                         setTimeout(() => {
                           const form = document.querySelector('form') as HTMLFormElement;
@@ -1118,7 +1149,6 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
                           <InfoCollectionForm
                             field={collectingField}
                             onSubmit={handleInfoSubmit}
-                            onSkip={handleInfoSkip}
                             botColor={bot.primaryColor || '#3B82F6'}
                           />
                         </div>
@@ -1179,6 +1209,17 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
                   const g = parseInt(hex.slice(3, 5), 16);
                   const b = parseInt(hex.slice(5, 7), 16);
                   e.currentTarget.style.boxShadow = `0 0 0 2px rgba(${r}, ${g}, ${b}, 0.25)`;
+                  
+                  // Mark widget as opened in sessionStorage when user first interacts (focuses input)
+                  if (typeof window !== 'undefined' && bot.id && bot.ctaEnabled) {
+                    const widgetOpenedKey = `chatbot_${bot.id}_widget_opened`;
+                    const hasBeenOpened = sessionStorage.getItem(widgetOpenedKey) === 'true';
+                    
+                    if (!hasBeenOpened) {
+                      sessionStorage.setItem(widgetOpenedKey, 'true');
+                      setShowCTA(false);
+                    }
+                  }
                       }
                 }}
                 onBlur={(e) => {
@@ -1209,9 +1250,48 @@ export default function LivePreview({ bot, onBotChange }: LivePreviewProps) {
           )}
         </div>
 
+        {/* CTA Bubble */}
+        {bot.ctaEnabled && showCTA && (
+          <div
+            className={`absolute ${viewMode === 'mobile' ? 'bottom-[72px]' : 'bottom-[72px]'} ${bot.position === 'bottom-right' ? 'right-0' : 'left-0'} bg-white rounded-xl ${viewMode === 'mobile' ? 'px-2.5 py-2' : 'px-3 py-2.5'} shadow-lg flex flex-col gap-1 w-fit max-w-[200px] transition-all duration-300 ${
+              isChatOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
+          >
+            <div
+              className={`${viewMode === 'mobile' ? 'text-[9px]' : 'text-[10px]'} font-semibold uppercase tracking-wide leading-[1.4] whitespace-nowrap`}
+              style={{ color: bot.primaryColor || '#3B82F6' }}
+            >
+              ONLINE
+            </div>
+            <div className={`${viewMode === 'mobile' ? 'text-xs' : 'text-[13px]'} font-medium text-gray-800 leading-[1.5] whitespace-nowrap`}>
+              {bot.ctaText || `Chat with ${bot.agentName || bot.name || 'us'}`}
+            </div>
+            {/* Arrow pointing down */}
+            <div
+              className={`absolute -bottom-2 ${bot.position === 'bottom-right' ? 'right-5' : 'left-5'} w-0 h-0 border-l-[8px] border-r-[8px] border-t-[8px] border-l-transparent border-r-transparent border-t-white`}
+            />
+          </div>
+        )}
+
         {/* Toggle Button */}
         <button
-          onClick={() => setIsChatOpen(!isChatOpen)}
+          onClick={() => {
+            const wasClosed = !isChatOpen;
+            setIsChatOpen(!isChatOpen);
+            
+            // Hide CTA bubble when chat opens (not when closing)
+            // If chat was closed and is now opening, mark as opened
+            if (wasClosed && bot.ctaEnabled && typeof window !== 'undefined' && bot.id) {
+              const widgetOpenedKey = `chatbot_${bot.id}_widget_opened`;
+              const hasBeenOpened = sessionStorage.getItem(widgetOpenedKey) === 'true';
+              
+              if (!hasBeenOpened) {
+                // Mark as opened in sessionStorage (will reset on page refresh)
+                sessionStorage.setItem(widgetOpenedKey, 'true');
+                setShowCTA(false);
+              }
+            }
+          }}
           className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white transition-transform hover:scale-105 active:scale-95 overflow-hidden"
           style={{ 
             backgroundColor: bot.primaryColor || '#3B82F6',

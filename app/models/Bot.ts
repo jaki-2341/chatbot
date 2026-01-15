@@ -25,6 +25,9 @@ export interface BotDocument {
   collectEmail?: boolean; // Collect email address
   collectName?: boolean; // Collect full name
   collectPhone?: boolean; // Collect phone number
+  ctaEnabled?: boolean; // Enable CTA bubble above chatbot button
+  ctaStatus?: string; // Status text (e.g., "ONLINE")
+  ctaText?: string; // CTA text (e.g., "Chat with Audrey")
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -54,6 +57,9 @@ export function botToDocument(bot: any): BotDocument {
     collectEmail: bot.collectEmail,
     collectName: bot.collectName,
     collectPhone: bot.collectPhone,
+    ctaEnabled: bot.ctaEnabled,
+    ctaStatus: bot.ctaStatus,
+    ctaText: bot.ctaText,
     createdAt: bot.createdAt || new Date(),
     updatedAt: new Date(),
   };
@@ -84,6 +90,9 @@ export function documentToBot(doc: BotDocument): any {
     collectEmail: doc.collectEmail,
     collectName: doc.collectName,
     collectPhone: doc.collectPhone,
+    ctaEnabled: doc.ctaEnabled,
+    ctaStatus: doc.ctaStatus,
+    ctaText: doc.ctaText,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
